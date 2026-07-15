@@ -1,5 +1,9 @@
 # Virality Engine — Design (impl. order #3)
 
+> **Status: ✅ Implemented (Sprint 3)** — `acis.engines.virality.ViralityEngine`,
+> wired via `build_virality_engine`. Transparent weighted score + diversity
+> guard + optional exploration. Learned priors override category fit once the
+> Learning Engine supplies them.
 > Interface: `acis.engines.interfaces.ViralityEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §3](../../../CONTENT_INTELLIGENCE.md)
 
@@ -23,10 +27,14 @@ always works on the highest-leverage, evidence-backed idea.
   direct call).
 
 ## 4. Configuration parameters
-- (new) `virality.weights` — per-component weights (`category_fit`, `novelty`,
-  `shareability`, `save_worthiness`, `trend_momentum`, `historical_fit`).
-- (new) `virality.diversity` — max share of one category in the top-N.
-- (new) `virality.exploration_ratio` — fraction of runs that explore.
+Implemented via `ViralityEngineConfig`:
+- `weights` — per-component weights (`category_fit`, `trend_momentum`, `novelty`,
+  `shareability`, `save_worthiness`, `historical_fit`); auto-normalised. ✅
+- `diversity_top_n`, `max_per_category_in_top` — category-collapse guard. ✅
+- `exploration_ratio` (default 0.0), `exploration_seed` — exploration budget. ✅
+- `historical_priors` (constructor) — learned category fit from the Learning
+  Engine (Sprint 10); empty for now. ✅
+- *Future:* promote weights/guards to explicit YAML keys.
 
 ## 5. Error cases
 - LLM estimate unavailable → fall back to configured priors; log degraded mode.

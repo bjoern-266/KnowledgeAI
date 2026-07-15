@@ -22,7 +22,6 @@ from acis.domain.enums import (
     Platform,
     PublishStatus,
     QualityCheck,
-    TopicCategory,
 )
 from acis.domain.models import (
     Asset,
@@ -34,33 +33,11 @@ from acis.domain.models import (
     Slide,
     Topic,
     VideoResult,
-    ViralityScore,
 )
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.trend import TrendEngine, TrendEngineConfig
+from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceViralityEngine:
-    def score(self, topic: Topic) -> ViralityScore:
-        # Simple heuristic: knowledge categories with strong "share" appeal.
-        weights = {
-            TopicCategory.SPACE: 0.9,
-            TopicCategory.SCIENCE: 0.85,
-            TopicCategory.PSYCHOLOGY: 0.85,
-            TopicCategory.STATISTICS: 0.8,
-        }
-        base = weights.get(topic.category, 0.7)
-        return ViralityScore(
-            value=base,
-            components={"category_fit": base, "novelty": 0.7},
-            rationale="Heuristic reference score",
-        )
-
-    def rank(self, topics: list[Topic]) -> list[Topic]:
-        for topic in topics:
-            topic.virality = self.score(topic)
-        return sorted(topics, key=lambda t: t.virality.value if t.virality else 0.0, reverse=True)
 
 
 class ReferenceContentEngine:
@@ -216,6 +193,15 @@ def build_research_engine(context: AppContext) -> ResearchEngine:
     )
 
 
+def build_virality_engine(context: AppContext) -> ViralityEngine:
+    """Construct the production Virality Engine (Sprint 3).
+
+    Historical priors are empty until the Learning Engine (Sprint 10) supplies
+    them; the engine falls back to base category appeal.
+    """
+    return ViralityEngine(historical_priors={})
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -227,7 +213,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         settings=s,
         trend=build_trend_engine(context),  # Sprint 1: production engine
         research=build_research_engine(context),  # Sprint 2: production engine
-        virality=ReferenceViralityEngine(),
+        virality=build_virality_engine(context),  # Sprint 3: production engine
         content=ReferenceContentEngine(s.content.instagram_carousel_slides),
         canva=ReferenceCanvaEngine(ints),
         tiktok=ReferenceTikTokEngine(),
