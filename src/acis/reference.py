@@ -14,68 +14,18 @@ else in the system is affected.
 
 from __future__ import annotations
 
-from acis.core.config import Settings
 from acis.core.context import AppContext
 from acis.core.pipeline import ContentPipeline
-from acis.domain.enums import (
-    Platform,
-    PublishStatus,
-    QualityCheck,
-)
-from acis.domain.models import (
-    Asset,
-    ContentPiece,
-    KnowledgeBase,
-    PublishReceipt,
-    QualityReport,
-)
+from acis.domain.enums import Platform, PublishStatus
+from acis.domain.models import Asset, ContentPiece, PublishReceipt
 from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
+from acis.engines.quality import QualityEngine, QualityEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.tiktok import TikTokVideoEngine
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceQualityEngine:
-    def __init__(self, settings: Settings) -> None:
-        self._q = settings.quality
-
-    def evaluate(
-        self,
-        content: ContentPiece,
-        knowledge: KnowledgeBase,
-        assets: list[Asset],
-    ) -> QualityReport:
-        scores: dict[QualityCheck, float] = {}
-        issues: list[str] = []
-
-        scores[QualityCheck.SOURCE_CHECK] = (
-            1.0 if knowledge.source_count >= self._q.min_sources_per_topic else 0.0
-        )
-        if scores[QualityCheck.SOURCE_CHECK] < 1.0:
-            issues.append("insufficient sources")
-
-        # Prefer corroborated facts; the knowledge base already flags uncertain ones.
-        corroborated = [f for f in knowledge.facts if not f.uncertain]
-        scores[QualityCheck.FACT_CHECK] = knowledge.confidence if corroborated else 0.0
-        if not corroborated:
-            issues.append("no corroborated facts")
-        scores[QualityCheck.SPELLING_CHECK] = 1.0 if content.slides else 0.0
-        scores[QualityCheck.DESIGN_CHECK] = 1.0 if assets else 0.0
-
-        component_values = list(scores.values())
-        overall = sum(component_values) / len(component_values) if component_values else 0.0
-        scores[QualityCheck.OVERALL_SCORE] = round(overall, 3)
-
-        return QualityReport(
-            content_id=content.id,
-            scores=scores,
-            threshold=self._q.min_score,
-            passed=overall >= self._q.min_score,
-            issues=issues,
-        )
 
 
 class ReferencePublishingEngine:
@@ -164,6 +114,11 @@ def build_tiktok_video_engine(context: AppContext) -> TikTokVideoEngine:
     return TikTokVideoEngine()
 
 
+def build_quality_engine(context: AppContext) -> QualityEngine:
+    """Construct the production Quality Engine (Sprint 7)."""
+    return QualityEngine(QualityEngineConfig.from_settings(context.settings))
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -179,7 +134,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         content=build_content_engine(context),  # Sprint 4: production engine
         canva=build_canva_engine(context),  # Sprint 5: production engine
         tiktok=build_tiktok_video_engine(context),  # Sprint 6: production engine
-        quality=ReferenceQualityEngine(s),
+        quality=build_quality_engine(context),  # Sprint 7: production engine
         publishing=ReferencePublishingEngine(ints),
         analytics=ReferenceAnalyticsEngine(ints),
         learning=ReferenceLearningEngine(),

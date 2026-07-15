@@ -1,5 +1,9 @@
 # Quality Engine — Design (impl. order #7)
 
+> **Status: ✅ Implemented (Sprint 7)** — `acis.engines.quality.QualityEngine`,
+> wired via `build_quality_engine`. Runs source/fact/spelling/design gates,
+> weighted into an overall score; fail-closed (missing evidence or off-brand
+> assets block, never pass). The pipeline enforces the hard stop.
 > Interface: `acis.engines.interfaces.QualityEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §7](../../../CONTENT_INTELLIGENCE.md)
 
