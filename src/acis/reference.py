@@ -25,30 +25,17 @@ from acis.domain.enums import (
 from acis.domain.models import (
     Asset,
     ContentPiece,
-    DesignResult,
     KnowledgeBase,
     PublishReceipt,
     QualityReport,
-    VideoResult,
 )
 from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
+from acis.engines.tiktok import TikTokVideoEngine
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceTikTokEngine:
-    def render(self, content: ContentPiece, design: DesignResult) -> VideoResult:
-        asset = Asset(
-            kind="video",
-            uri=f"mock://tiktok/{content.id[:8]}.mp4",
-            mime_type="video/mp4",
-            width=1080,
-            height=1920,
-        )
-        return VideoResult(content_id=content.id, asset=asset, duration_seconds=22.0)
 
 
 class ReferenceQualityEngine:
@@ -172,6 +159,11 @@ def build_canva_engine(context: AppContext) -> CanvaEngine:
     )
 
 
+def build_tiktok_video_engine(context: AppContext) -> TikTokVideoEngine:
+    """Construct the production TikTok Video Engine (Sprint 6)."""
+    return TikTokVideoEngine()
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -186,7 +178,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         virality=build_virality_engine(context),  # Sprint 3: production engine
         content=build_content_engine(context),  # Sprint 4: production engine
         canva=build_canva_engine(context),  # Sprint 5: production engine
-        tiktok=ReferenceTikTokEngine(),
+        tiktok=build_tiktok_video_engine(context),  # Sprint 6: production engine
         quality=ReferenceQualityEngine(s),
         publishing=ReferencePublishingEngine(ints),
         analytics=ReferenceAnalyticsEngine(ints),

@@ -27,8 +27,8 @@ is built **before** Virality so weak-evidence topics are discarded cheaply.
 | 3 | Virality | score screened topics | ✅ done | [virality-engine.md](virality-engine.md) |
 | 4 | Content | write carousel/script | ✅ done | [content-engine.md](content-engine.md) |
 | 5 | Canva Automation | design | ✅ done | [canva-automation-engine.md](canva-automation-engine.md) |
-| 6 | TikTok Video | derive video | ⬜ next | [tiktok-video-engine.md](tiktok-video-engine.md) |
-| 7 | Quality | gate | ⬜ | [quality-engine.md](quality-engine.md) |
+| 6 | TikTok Video | derive video | ✅ done | [tiktok-video-engine.md](tiktok-video-engine.md) |
+| 7 | Quality | gate | ⬜ next | [quality-engine.md](quality-engine.md) |
 | 8 | Publishing | publish/prepare | ⬜ | [publishing-engine.md](publishing-engine.md) |
 | 9 | Analytics | measure | ⬜ | [analytics-engine.md](analytics-engine.md) |
 | 10 | Learning | optimise | ⬜ | [learning-engine.md](learning-engine.md) |

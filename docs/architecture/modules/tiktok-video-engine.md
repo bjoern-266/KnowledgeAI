@@ -1,5 +1,10 @@
 # TikTok Video Engine — Design (impl. order #6)
 
+> **Status: ✅ Implemented (Sprint 6)** — `acis.engines.tiktok.TikTokVideoEngine`,
+> wired via `build_tiktok_video_engine`. Builds the storyboard (scene→frame
+> mapping, timing, safe zones, hook-first) from the ContentPiece script + Canva
+> design; file production is delegated to an injectable `renderer` seam (mock by
+> default; real ffmpeg/cloud renderer plugs in unchanged).
 > Interface: `acis.engines.interfaces.TikTokVideoEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §6, §8](../../../CONTENT_INTELLIGENCE.md)
 
