@@ -406,5 +406,27 @@ class PublishReceipt(DomainModel):
     detail: str = ""
 
 
+class MetricSnapshot(DomainModel):
+    """A point-in-time KPI reading for a published post (Analytics Engine).
+
+    Persisted as a time series so the Learning Engine can attribute performance
+    to a content piece / platform. ``metrics`` holds normalised, platform-
+    agnostic KPIs (impressions, saves, shares, save_rate, share_rate, ...).
+    """
+
+    content_id: str
+    platform: Platform
+    external_id: str = ""
+    metrics: dict[str, float] = Field(default_factory=dict)
+
+    @property
+    def save_rate(self) -> float:
+        return self.metrics.get("save_rate", 0.0)
+
+    @property
+    def share_rate(self) -> float:
+        return self.metrics.get("share_rate", 0.0)
+
+
 # Resolve forward reference (Topic -> ViralityScore).
 Topic.model_rebuild()

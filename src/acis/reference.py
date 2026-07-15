@@ -17,6 +17,7 @@ from __future__ import annotations
 from acis.core.context import AppContext
 from acis.core.pipeline import ContentPipeline
 from acis.domain.models import PublishReceipt
+from acis.engines.analytics import AnalyticsEngine, AnalyticsEngineConfig
 from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
 from acis.engines.publishing import PublishingEngine, PublishingEngineConfig
@@ -25,20 +26,6 @@ from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.tiktok import TikTokVideoEngine
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
-from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceAnalyticsEngine:
-    def __init__(self, integrations: IntegrationBundle) -> None:
-        self._analytics = integrations.analytics
-
-    def collect(self, receipt: PublishReceipt) -> dict[str, float]:
-        if not receipt.external_id:
-            return {}
-        try:
-            return self._analytics.fetch_metrics(receipt.external_id)
-        except Exception:  # noqa: BLE001 - metrics are best-effort
-            return {}
 
 
 class ReferenceLearningEngine:
@@ -113,15 +100,22 @@ def build_publishing_engine(context: AppContext) -> PublishingEngine:
     )
 
 
+def build_analytics_engine(context: AppContext) -> AnalyticsEngine:
+    """Construct the production Analytics Engine (Sprint 9)."""
+    return AnalyticsEngine(
+        context.integrations.analytics,
+        repository=context.repository,
+        config=AnalyticsEngineConfig(),
+    )
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
     replaced by the real implementation - the rest of the system is untouched.
     """
-    s = context.settings
-    ints = context.integrations
     return ContentPipeline(
-        settings=s,
+        settings=context.settings,
         trend=build_trend_engine(context),  # Sprint 1: production engine
         research=build_research_engine(context),  # Sprint 2: production engine
         virality=build_virality_engine(context),  # Sprint 3: production engine
@@ -130,7 +124,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         tiktok=build_tiktok_video_engine(context),  # Sprint 6: production engine
         quality=build_quality_engine(context),  # Sprint 7: production engine
         publishing=build_publishing_engine(context),  # Sprint 8: production engine
-        analytics=ReferenceAnalyticsEngine(ints),
+        analytics=build_analytics_engine(context),  # Sprint 9: production engine
         learning=ReferenceLearningEngine(),
         repository=context.repository,
     )

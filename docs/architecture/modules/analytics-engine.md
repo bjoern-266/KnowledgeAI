@@ -1,5 +1,10 @@
 # Analytics Engine — Design (impl. order #9)
 
+> **Status: ✅ Implemented (Sprint 9)** — `acis.engines.analytics.AnalyticsEngine`,
+> wired via `build_analytics_engine`. Fetches per-post KPIs, normalises them
+> (guarded save/share/engagement rates), and persists a `MetricSnapshot` time
+> series linked to content/platform. Best-effort (prepared-only or API failure
+> returns `{}`).
 > Interface: `acis.engines.interfaces.AnalyticsEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §8](../../../CONTENT_INTELLIGENCE.md)
 
