@@ -118,6 +118,12 @@ class AnalyticsEngine(Protocol):
 
 @runtime_checkable
 class LearningEngine(Protocol):
-    """Step 9: turn performance into guidance for future content."""
+    """Step 9: turn performance into guidance for future content.
 
-    def learn(self, receipt: PublishReceipt, metrics: dict[str, float]) -> dict[str, float]: ...
+    Receives the ``topic`` so performance can be attributed to its category and
+    fed back into virality scoring on the next cycle.
+    """
+
+    def learn(
+        self, topic: Topic, receipt: PublishReceipt, metrics: dict[str, float]
+    ) -> dict[str, float]: ...

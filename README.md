@@ -5,13 +5,13 @@ from reliable sources, produces branded knowledge content for **Instagram** and
 **TikTok**, publishes it, and learns from performance — **without manual
 intervention**.
 
-> This repository currently contains the **foundation**: architecture, project
-> structure, configuration, logging, persistence, scheduling, the
-> integration/adapter layer (with mock modes), error handling, base classes,
-> the pipeline orchestrator, tests, and documentation. The ten business engines
-> are specified as interfaces + architecture concepts and implemented one at a
-> time after review. A runnable **reference pipeline** proves the end-to-end
-> flow today, entirely in mock mode.
+> This repository contains the full system: the foundation (configuration,
+> logging, persistence, scheduling, the integration/adapter layer with mock
+> modes, error handling, base classes, the pipeline orchestrator) **and all ten
+> business engines** (Trend, Research, Virality, Content, Canva, TikTok, Quality,
+> Publishing, Analytics, Learning). It runs end-to-end today — trend → research →
+> score → write → design → video → quality gate → publish → measure → learn —
+> entirely in mock mode, with the optimisation loop closed.
 
 ---
 
@@ -103,10 +103,12 @@ key facts, highlights and CTAs. See [docs/branding.md](docs/branding.md).
 | [Development guidelines](docs/development-guidelines.md) | How to contribute |
 | [Branding](docs/branding.md) | Visual identity spec |
 
-> **Status:** the business architecture is fully specified. Engines are
-> implemented in review order (Trend → Research → Virality → …), one at a time,
-> each against its approved design doc. See
-> [module designs](docs/architecture/modules/README.md).
+> **Status:** all ten engines are implemented (Trend → Research → Virality →
+> Content → Canva → TikTok → Quality → Publishing → Analytics → Learning). The
+> pipeline runs end-to-end on production engines with mock integrations by
+> default, and the optimisation loop is closed (Learning feeds Virality). Add
+> credentials and flip integrations to `live` to publish for real — no code
+> changes. See [module designs](docs/architecture/modules/README.md).
 
 ## License
 

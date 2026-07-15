@@ -428,5 +428,19 @@ class MetricSnapshot(DomainModel):
         return self.metrics.get("share_rate", 0.0)
 
 
+class CategoryPrior(DomainModel):
+    """A learned performance prior for a topic category (Learning Engine).
+
+    ``value`` is a [0..1] fit the Virality Engine uses to bias scoring toward
+    categories that historically earn saves/shares. Persisted keyed by category
+    (``id == category.value``) and updated by an exponential moving average with
+    shrinkage so early samples move it only a little.
+    """
+
+    category: TopicCategory
+    value: float = Field(default=0.7, ge=0.0, le=1.0)
+    samples: int = 0
+
+
 # Resolve forward reference (Topic -> ViralityScore).
 Topic.model_rebuild()

@@ -1,5 +1,9 @@
 # Learning Engine — Design (impl. order #10)
 
+> **Status: ✅ Implemented (Sprint 10)** — `acis.engines.learning.LearningEngine`,
+> wired via `build_learning_engine`. Turns save/share performance into learned
+> per-category priors via an EMA with shrinkage; persists `CategoryPrior`s that
+> the Virality Engine loads on the next run. Closes the optimisation loop.
 > Interface: `acis.engines.interfaces.LearningEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §3, §8](../../../CONTENT_INTELLIGENCE.md)
 

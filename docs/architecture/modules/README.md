@@ -31,7 +31,12 @@ is built **before** Virality so weak-evidence topics are discarded cheaply.
 | 7 | Quality | gate | ✅ done | [quality-engine.md](quality-engine.md) |
 | 8 | Publishing | publish/prepare | ✅ done | [publishing-engine.md](publishing-engine.md) |
 | 9 | Analytics | measure | ✅ done | [analytics-engine.md](analytics-engine.md) |
-| 10 | Learning | optimise | ⬜ next | [learning-engine.md](learning-engine.md) |
+| 10 | Learning | optimise | ✅ done | [learning-engine.md](learning-engine.md) |
+
+**All ten engines are implemented.** The pipeline runs end-to-end on production
+engines (mock integrations by default); `build_reference_pipeline` in
+`acis/reference.py` wires them. The optimisation loop is closed: Learning writes
+`CategoryPrior`s that the Virality Engine reads on the next cycle.
 
 > Note: the Research Engine runs at **two** pipeline points — cheap `screen`
 > before virality scoring, and deep `research` after the winner is selected.

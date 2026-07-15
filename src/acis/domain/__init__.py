@@ -19,6 +19,7 @@ from acis.domain.enums import (
 )
 from acis.domain.models import (
     Asset,
+    CategoryPrior,
     ContentPiece,
     Definition,
     DesignResult,
@@ -43,6 +44,7 @@ from acis.domain.models import (
 
 __all__ = [
     "Asset",
+    "CategoryPrior",
     "ContentFormat",
     "ContentPiece",
     "Definition",

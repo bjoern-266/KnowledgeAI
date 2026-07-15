@@ -151,7 +151,7 @@ class ContentPipeline:
                 metrics = self.analytics.collect(receipt)
                 if metrics:
                     result.metrics[receipt.platform.value] = metrics
-                    self.learning.learn(receipt, metrics)
+                    self.learning.learn(topic, receipt, metrics)
             self._record_published(topic, receipts)
 
         self.log.info("pipeline.completed", content_id=content.id, published=publish)

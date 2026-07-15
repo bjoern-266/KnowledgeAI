@@ -1,40 +1,29 @@
-"""Reference engine implementations - foundation scaffolding.
+"""Pipeline assembly (composition root).
 
-These are intentionally minimal implementations of the engine interfaces, built
-directly on the mock/live integration ports. Their sole purpose is to prove the
-end-to-end wiring (Definition of Success) works today, before any real engine
-is built.
+Constructs each production engine from the wired :class:`AppContext` and
+assembles them into a :class:`ContentPipeline`. All ten engines are now real
+implementations under ``acis/engines/<name>/``; this module only wires them.
 
-Each will be superseded by a full, reviewed engine implementation under
-``acis/engines/<name>/``. Because everything depends on the interfaces in
-:mod:`acis.engines.interfaces`, swapping a reference engine for its real
-counterpart is a one-line change in :func:`build_reference_pipeline` - nothing
-else in the system is affected.
+Because every stage depends on the interfaces in
+:mod:`acis.engines.interfaces`, an engine can be swapped here without touching
+the rest of the system. (The function keeps its historical name
+``build_reference_pipeline`` for API stability.)
 """
 
 from __future__ import annotations
 
 from acis.core.context import AppContext
 from acis.core.pipeline import ContentPipeline
-from acis.domain.models import PublishReceipt
 from acis.engines.analytics import AnalyticsEngine, AnalyticsEngineConfig
 from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
+from acis.engines.learning import LearningEngine, load_category_priors
 from acis.engines.publishing import PublishingEngine, PublishingEngineConfig
 from acis.engines.quality import QualityEngine, QualityEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.tiktok import TikTokVideoEngine
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
-
-
-class ReferenceLearningEngine:
-    def learn(self, receipt: PublishReceipt, metrics: dict[str, float]) -> dict[str, float]:
-        # Foundation stub: echo the save/share rates as "learned" signals.
-        return {
-            "save_rate": metrics.get("save_rate", 0.0),
-            "share_rate": metrics.get("share_rate", 0.0),
-        }
 
 
 def build_trend_engine(context: AppContext) -> TrendEngine:
@@ -60,10 +49,16 @@ def build_research_engine(context: AppContext) -> ResearchEngine:
 def build_virality_engine(context: AppContext) -> ViralityEngine:
     """Construct the production Virality Engine (Sprint 3).
 
-    Historical priors are empty until the Learning Engine (Sprint 10) supplies
-    them; the engine falls back to base category appeal.
+    Loads learned category priors persisted by the Learning Engine (Sprint 10),
+    so scoring improves as the system observes real performance; falls back to
+    base category appeal when no priors exist yet.
     """
-    return ViralityEngine(historical_priors={})
+    return ViralityEngine(historical_priors=load_category_priors(context.repository))
+
+
+def build_learning_engine(context: AppContext) -> LearningEngine:
+    """Construct the production Learning Engine (Sprint 10)."""
+    return LearningEngine(repository=context.repository)
 
 
 def build_content_engine(context: AppContext) -> ContentEngine:
@@ -125,6 +120,6 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         quality=build_quality_engine(context),  # Sprint 7: production engine
         publishing=build_publishing_engine(context),  # Sprint 8: production engine
         analytics=build_analytics_engine(context),  # Sprint 9: production engine
-        learning=ReferenceLearningEngine(),
+        learning=build_learning_engine(context),  # Sprint 10: production engine
         repository=context.repository,
     )
