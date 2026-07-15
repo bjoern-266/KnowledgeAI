@@ -1,5 +1,7 @@
 # Trend Intelligence Engine — Design (impl. order #1)
 
+> **Status: ✅ Implemented (Sprint 1)** — `acis.engines.trend.TrendEngine`,
+> wired into the live pipeline via `build_trend_engine`. Try it: `acis topics`.
 > Interface: `acis.engines.interfaces.TrendIntelligenceEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §1](../../../CONTENT_INTELLIGENCE.md)
 
@@ -24,11 +26,13 @@ evergreen-leaning **topic candidates** in the knowledge niche.
 - No dependency on any other engine — communicates via `Topic` only.
 
 ## 4. Configuration parameters
-- `content.topics` — allowed categories.
-- `integrations.trends.*` — source mode/credentials.
-- (new) `trends.sources` — which sources to enable & their weights.
-- (new) `trends.evergreen_bias` — reactive-vs-evergreen mix (§1).
-- (new) `trends.dedup_similarity_threshold` — suppression cutoff.
+Implemented via `TrendEngineConfig` (constructed in `build_trend_engine`):
+- `content.topics` — allowed categories (read from settings). ✅
+- `integrations.trends.*` — source mode/credentials. ✅
+- `evergreen_bias` (default 0.4) — reactive-vs-evergreen mix (§1). ✅
+- `dedup_threshold` (default 0.6) — token-Jaccard merge cutoff. ✅
+- `per_source_limit` (default 100), `history_collection` (`published_topics`). ✅
+- *Future:* promote these to explicit YAML keys and add multi-source weights.
 
 ## 5. Error cases
 - Source unavailable / rate-limited → `IntegrationError`; degrade to remaining

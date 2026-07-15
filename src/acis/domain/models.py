@@ -67,6 +67,10 @@ class Topic(DomainModel):
     angle: str = ""  # the specific hook / framing
     source_trends: list[str] = Field(default_factory=list)  # Trend ids
     keywords: list[str] = Field(default_factory=list)
+    #: Preliminary relevance from the Trend Intelligence Engine (momentum +
+    #: evergreen weighting), used only for the initial candidate ranking. The
+    #: Virality Engine later sets ``virality`` for the final scoring.
+    relevance: float = 0.0
     virality: ViralityScore | None = None
 
 

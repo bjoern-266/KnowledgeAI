@@ -3,6 +3,7 @@
 Commands:
     acis config            Show the resolved configuration (secrets redacted).
     acis health            Report the health of every integration adapter.
+    acis topics            List ranked candidate topics (Trend Intelligence).
     acis run-once          Execute one full pipeline cycle (mock-safe).
     acis start             Run the scheduler loop (Ctrl-C to stop).
 
@@ -52,6 +53,20 @@ def _cmd_health(ctx: AppContext) -> int:
         return 0 if ok else 1
     finally:
         ctx.shutdown()
+
+
+def _cmd_topics(ctx: AppContext, *, limit: int) -> int:
+    """Sprint 1 deliverable: the ranked, de-duplicated candidate topic list."""
+    from acis.reference import build_trend_engine
+
+    with ctx:
+        engine = build_trend_engine(ctx)
+        trends = engine.discover(limit=limit)
+        topics = engine.to_topics(trends)
+        print(f"{len(topics)} candidate topics (ranked by preliminary relevance):\n")
+        for i, topic in enumerate(topics, start=1):
+            print(f"{i:>3}. [{topic.relevance:.3f}] {topic.category.value:<16} {topic.title}")
+    return 0
 
 
 def _cmd_run_once(ctx: AppContext, *, publish: bool) -> int:
@@ -109,6 +124,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("config", help="Print the resolved configuration")
     sub.add_parser("health", help="Check integration health")
 
+    topics = sub.add_parser("topics", help="List candidate topics (Trend Intelligence)")
+    topics.add_argument("--limit", type=int, default=60, help="Max topics to emit")
+
     run = sub.add_parser("run-once", help="Run one pipeline cycle")
     run.add_argument("--no-publish", action="store_true", help="Skip the publish step")
 
@@ -124,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_config(ctx)
         if args.command == "health":
             return _cmd_health(ctx)
+        if args.command == "topics":
+            return _cmd_topics(ctx, limit=args.limit)
         if args.command == "run-once":
             return _cmd_run_once(ctx, publish=not args.no_publish)
         if args.command == "start":

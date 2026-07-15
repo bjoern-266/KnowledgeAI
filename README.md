@@ -55,6 +55,7 @@ pip install -e ".[dev]"
 # Everything below works with NO credentials (mock mode):
 acis config              # show resolved configuration (secrets redacted)
 acis health              # check every integration adapter
+acis topics              # Sprint 1: ranked, de-duplicated candidate topics
 acis run-once            # one full autonomous cycle: trend → publish → learn
 pytest                   # run the test suite
 ```

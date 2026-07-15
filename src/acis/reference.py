@@ -35,33 +35,11 @@ from acis.domain.models import (
     Source,
     SourceAvailability,
     Topic,
-    Trend,
     VideoResult,
     ViralityScore,
 )
+from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceTrendEngine:
-    def __init__(self, integrations: IntegrationBundle) -> None:
-        self._trends = integrations.trends
-
-    def discover(self, *, region: str = "global", limit: int = 20) -> list[Trend]:
-        return self._trends.fetch_trends(region=region, limit=limit)
-
-    def to_topics(self, trends: list[Trend]) -> list[Topic]:
-        topics: list[Topic] = []
-        for trend in trends:
-            topics.append(
-                Topic(
-                    title=trend.keyword.title(),
-                    category=trend.category or TopicCategory.CURIOSITIES,
-                    angle="Myth vs. reality",
-                    source_trends=[trend.id],
-                    keywords=[trend.keyword],
-                )
-            )
-        return topics
 
 
 class ReferenceViralityEngine:
@@ -246,13 +224,26 @@ class ReferenceLearningEngine:
         }
 
 
+def build_trend_engine(context: AppContext) -> TrendEngine:
+    """Construct the production Trend Intelligence Engine (Sprint 1)."""
+    s = context.settings
+    return TrendEngine(
+        sources=[context.integrations.trends],
+        repository=context.repository,
+        config=TrendEngineConfig.from_topic_values(s.content.topics),
+    )
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
-    """Assemble a runnable pipeline from reference engines + wired integrations."""
+    """Assemble a runnable pipeline: production engines where available, reference
+    stand-ins for the rest. As each sprint lands, its reference engine here is
+    replaced by the real implementation - the rest of the system is untouched.
+    """
     s = context.settings
     ints = context.integrations
     return ContentPipeline(
         settings=s,
-        trend=ReferenceTrendEngine(ints),
+        trend=build_trend_engine(context),  # Sprint 1: production engine
         virality=ReferenceViralityEngine(),
         research=ReferenceResearchEngine(ints, s.quality.min_sources_per_topic),
         content=ReferenceContentEngine(s.content.instagram_carousel_slides),
