@@ -1,5 +1,10 @@
 # Canva Automation Engine — Design (impl. order #5)
 
+> **Status: ✅ Implemented (Sprint 5)** — `acis.engines.canva.CanvaEngine`,
+> wired via `build_canva_engine`. Computes a per-slide branded spec (dark
+> palette + strong-yellow accent on key elements only), enforces accent
+> discipline (raises on violation), then drives the Canva port to create/export;
+> each asset carries brand metadata for the Quality gate.
 > Interface: `acis.engines.interfaces.CanvaAutomationEngine`
 > Business rules: [branding.md](../../branding.md),
 > [CONTENT_INTELLIGENCE.md §6](../../../CONTENT_INTELLIGENCE.md)

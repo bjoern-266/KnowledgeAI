@@ -31,19 +31,12 @@ from acis.domain.models import (
     QualityReport,
     VideoResult,
 )
+from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceCanvaEngine:
-    def __init__(self, integrations: IntegrationBundle) -> None:
-        self._canva = integrations.canva
-
-    def design(self, content: ContentPiece) -> DesignResult:
-        return self._canva.create_design(content)
 
 
 class ReferenceTikTokEngine:
@@ -171,6 +164,14 @@ def build_content_engine(context: AppContext) -> ContentEngine:
     return ContentEngine(ContentEngineConfig.from_settings(s.content.instagram_carousel_slides))
 
 
+def build_canva_engine(context: AppContext) -> CanvaEngine:
+    """Construct the production Canva Automation Engine (Sprint 5)."""
+    return CanvaEngine(
+        context.integrations.canva,
+        CanvaEngineConfig.from_branding(context.settings.branding),
+    )
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -184,7 +185,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         research=build_research_engine(context),  # Sprint 2: production engine
         virality=build_virality_engine(context),  # Sprint 3: production engine
         content=build_content_engine(context),  # Sprint 4: production engine
-        canva=ReferenceCanvaEngine(ints),
+        canva=build_canva_engine(context),  # Sprint 5: production engine
         tiktok=ReferenceTikTokEngine(),
         quality=ReferenceQualityEngine(s),
         publishing=ReferencePublishingEngine(ints),
