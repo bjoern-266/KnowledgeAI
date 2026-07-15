@@ -18,7 +18,6 @@ from acis.core.config import Settings
 from acis.core.context import AppContext
 from acis.core.pipeline import ContentPipeline
 from acis.domain.enums import (
-    ContentFormat,
     Platform,
     PublishStatus,
     QualityCheck,
@@ -30,49 +29,13 @@ from acis.domain.models import (
     KnowledgeBase,
     PublishReceipt,
     QualityReport,
-    Slide,
-    Topic,
     VideoResult,
 )
+from acis.engines.content import ContentEngine, ContentEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferenceContentEngine:
-    def __init__(self, slides: int) -> None:
-        self._slides = slides
-
-    def create(self, topic: Topic, knowledge: KnowledgeBase) -> ContentPiece:
-        # Draw entirely from the KnowledgeBase - the Content Engine never researches.
-        hook = knowledge.hook_candidates[0].text if knowledge.hook_candidates else topic.angle
-        slides = [Slide(index=0, headline=topic.title, body=knowledge.summary, highlight=hook)]
-        for i, fact in enumerate(knowledge.facts[: self._slides - 2], start=1):
-            highlight = fact.statement if fact.fact_type.value in ("statistic", "record") else ""
-            slides.append(
-                Slide(
-                    index=i,
-                    headline=fact.fact_type.value.title(),
-                    body=fact.statement,
-                    highlight=highlight,
-                )
-            )
-        slides.append(
-            Slide(index=len(slides), headline="Save & share", body="Follow for more.", highlight="")
-        )
-        return ContentPiece(
-            topic_id=topic.id,
-            knowledge_id=knowledge.id,
-            platform=Platform.INSTAGRAM,
-            content_format=ContentFormat.INSTAGRAM_CAROUSEL,
-            hook=hook,
-            slides=slides,
-            caption=f"{knowledge.summary} Sources in comments.",
-            hashtags=["#knowledge", f"#{topic.category.value}"],
-            cta="Save this for later.",
-            status=PublishStatus.DRAFT,
-        )
 
 
 class ReferenceCanvaEngine:
@@ -202,6 +165,12 @@ def build_virality_engine(context: AppContext) -> ViralityEngine:
     return ViralityEngine(historical_priors={})
 
 
+def build_content_engine(context: AppContext) -> ContentEngine:
+    """Construct the production Content Engine (Sprint 4)."""
+    s = context.settings
+    return ContentEngine(ContentEngineConfig.from_settings(s.content.instagram_carousel_slides))
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -214,7 +183,7 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         trend=build_trend_engine(context),  # Sprint 1: production engine
         research=build_research_engine(context),  # Sprint 2: production engine
         virality=build_virality_engine(context),  # Sprint 3: production engine
-        content=ReferenceContentEngine(s.content.instagram_carousel_slides),
+        content=build_content_engine(context),  # Sprint 4: production engine
         canva=ReferenceCanvaEngine(ints),
         tiktok=ReferenceTikTokEngine(),
         quality=ReferenceQualityEngine(s),

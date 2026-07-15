@@ -304,10 +304,30 @@ class Slide(BaseModel):
     body: str = ""
     highlight: str = ""  # the key number/fact (accent-styled)
     notes: str = ""  # design/voiceover hints
+    visual: VisualType | None = None  # suggested treatment (from research visual potential)
+    source_ids: list[str] = Field(default_factory=list)  # provenance for this slide's fact
+
+
+class ScriptScene(BaseModel):
+    """One scene of the derived TikTok script."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int
+    on_screen: str = ""  # short on-screen text
+    voiceover: str = ""  # narration / spoken line
+    seconds: float = 3.0
+    visual: VisualType | None = None
+    source_ids: list[str] = Field(default_factory=list)
 
 
 class ContentPiece(DomainModel):
-    """The written, structured content ready to be designed/rendered."""
+    """The written, structured content ready to be designed/rendered.
+
+    Carries the primary Instagram carousel (``slides``) and the derived TikTok
+    ``script`` - both produced from the same KnowledgeBase so one research effort
+    yields both formats. Design/rendering happen later (Canva / TikTok engines).
+    """
 
     topic_id: str
     knowledge_id: str
@@ -315,10 +335,15 @@ class ContentPiece(DomainModel):
     content_format: ContentFormat
     hook: str = ""
     slides: list[Slide] = Field(default_factory=list)
+    script: list[ScriptScene] = Field(default_factory=list)  # derived TikTok scenes
     caption: str = ""
     hashtags: list[str] = Field(default_factory=list)
     cta: str = ""
     status: PublishStatus = PublishStatus.DRAFT
+
+    @property
+    def script_seconds(self) -> float:
+        return round(sum(s.seconds for s in self.script), 1)
 
 
 # --------------------------------------------------------------------------- #

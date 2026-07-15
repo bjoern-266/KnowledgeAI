@@ -1,5 +1,9 @@
 # Content Engine — Design (impl. order #4)
 
+> **Status: ✅ Implemented (Sprint 4)** — `acis.engines.content.ContentEngine`,
+> wired via `build_content_engine`. Produces the Instagram carousel **and** a
+> derived TikTok script (`ContentPiece.script`), plus caption/hashtags/CTA — all
+> from the KnowledgeBase, using corroborated facts only.
 > Interface: `acis.engines.interfaces.ContentEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §4, §6](../../../CONTENT_INTELLIGENCE.md)
 
@@ -23,10 +27,11 @@ carousel (primary) and the material the TikTok Video Engine will script from.
 - **Produces for:** Canva Automation Engine, TikTok Video Engine, Quality Engine.
 
 ## 4. Configuration parameters
-- `content.instagram_carousel_slides` — target slide count.
-- `content.platforms` — enabled platforms.
-- `branding.*` — tone/voice constraints (premium, technical, minimalist).
-- (new) `content.hook_styles`, `content.caption_max_len`.
+Implemented via `ContentEngineConfig`:
+- `carousel_slides` (from `content.instagram_carousel_slides`) — total slides. ✅
+- `max_hashtags`, `cta_text`. ✅
+- `tiktok_target_seconds`, `tiktok_max_beats` — script length/pacing. ✅
+- *Future:* hook-style library, per-platform caption length, tone from branding.
 
 ## 5. Error cases
 - LLM output malformed → re-prompt with stricter schema; cap retries.
