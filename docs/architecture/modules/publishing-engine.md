@@ -1,5 +1,10 @@
 # Publishing Engine — Design (impl. order #8)
 
+> **Status: ✅ Implemented (Sprint 8)** — `acis.engines.publishing.PublishingEngine`,
+> wired via `build_publishing_engine`. Publishes the carousel to Instagram and
+> the video to TikTok, returning one receipt per platform; degrades to PREPARED
+> when a live API/credentials are absent; idempotent (persisted receipts, no
+> double-post). `publish(content, assets, video) -> list[PublishReceipt]`.
 > Interface: `acis.engines.interfaces.PublishingEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §6, §8](../../../CONTENT_INTELLIGENCE.md)
 

@@ -29,8 +29,8 @@ is built **before** Virality so weak-evidence topics are discarded cheaply.
 | 5 | Canva Automation | design | ✅ done | [canva-automation-engine.md](canva-automation-engine.md) |
 | 6 | TikTok Video | derive video | ✅ done | [tiktok-video-engine.md](tiktok-video-engine.md) |
 | 7 | Quality | gate | ✅ done | [quality-engine.md](quality-engine.md) |
-| 8 | Publishing | publish/prepare | ⬜ next | [publishing-engine.md](publishing-engine.md) |
-| 9 | Analytics | measure | ⬜ | [analytics-engine.md](analytics-engine.md) |
+| 8 | Publishing | publish/prepare | ✅ done | [publishing-engine.md](publishing-engine.md) |
+| 9 | Analytics | measure | ⬜ next | [analytics-engine.md](analytics-engine.md) |
 | 10 | Learning | optimise | ⬜ | [learning-engine.md](learning-engine.md) |
 
 > Note: the Research Engine runs at **two** pipeline points — cheap `screen`

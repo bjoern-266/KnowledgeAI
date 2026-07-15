@@ -98,9 +98,15 @@ class QualityEngine(Protocol):
 
 @runtime_checkable
 class PublishingEngine(Protocol):
-    """Step 7: publish (or prepare) content on each platform."""
+    """Step 7: publish (or prepare) content on each platform.
 
-    def publish(self, content: ContentPiece, assets: list[Asset]) -> PublishReceipt: ...
+    Publishes the carousel (``assets``) to Instagram and the ``video`` to TikTok,
+    returning one receipt per targeted platform.
+    """
+
+    def publish(
+        self, content: ContentPiece, assets: list[Asset], video: VideoResult
+    ) -> list[PublishReceipt]: ...
 
 
 @runtime_checkable

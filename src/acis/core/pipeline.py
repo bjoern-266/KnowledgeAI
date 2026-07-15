@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from acis.core.config import Settings
 from acis.core.errors import NoViableTopicError, QualityGateError
 from acis.core.logging import BoundLogger, get_logger
+from acis.data.repository import Repository
+from acis.domain.enums import PublishStatus
 from acis.domain.models import (
     ContentPiece,
     DesignResult,
@@ -51,7 +53,8 @@ class PipelineResult:
     video: VideoResult
     quality: QualityReport
     receipts: list[PublishReceipt] = field(default_factory=list)
-    metrics: dict[str, float] = field(default_factory=dict)
+    #: Per-platform metrics: platform value -> KPI dict.
+    metrics: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -69,6 +72,8 @@ class ContentPipeline:
     publishing: PublishingEngine
     analytics: AnalyticsEngine
     learning: LearningEngine
+    #: Optional store; when present, published topics are recorded for dedup.
+    repository: Repository | None = None
 
     def __post_init__(self) -> None:
         self.log: BoundLogger = BoundLogger(get_logger("acis.pipeline"))
@@ -137,13 +142,28 @@ class ContentPipeline:
             quality=report,
         )
 
-        # 10. Publish (or prepare, when credentials are absent).
+        # 10. Publish (or prepare, when credentials are absent) to each platform.
         if publish:
-            receipt = self.publishing.publish(content, design.assets)
-            result.receipts.append(receipt)
-            # 11-12. Collect metrics and learn from them.
-            result.metrics = self.analytics.collect(receipt)
-            self.learning.learn(receipt, result.metrics)
+            receipts = self.publishing.publish(content, design.assets, video)
+            result.receipts.extend(receipts)
+            # 11-12. Collect metrics and learn from them, per platform.
+            for receipt in receipts:
+                metrics = self.analytics.collect(receipt)
+                if metrics:
+                    result.metrics[receipt.platform.value] = metrics
+                    self.learning.learn(receipt, metrics)
+            self._record_published(topic, receipts)
 
         self.log.info("pipeline.completed", content_id=content.id, published=publish)
         return result
+
+    def _record_published(self, topic: Topic, receipts: list[PublishReceipt]) -> None:
+        """Persist the topic so future runs de-duplicate against it (best-effort)."""
+        if self.repository is None:
+            return
+        if not any(r.status is PublishStatus.PUBLISHED for r in receipts):
+            return
+        try:
+            self.repository.save("published_topics", topic)
+        except Exception:  # noqa: BLE001 - dedup persistence is best-effort
+            self.log.exception("pipeline.record_published_failed")

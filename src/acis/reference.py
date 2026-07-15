@@ -16,32 +16,16 @@ from __future__ import annotations
 
 from acis.core.context import AppContext
 from acis.core.pipeline import ContentPipeline
-from acis.domain.enums import Platform, PublishStatus
-from acis.domain.models import Asset, ContentPiece, PublishReceipt
+from acis.domain.models import PublishReceipt
 from acis.engines.canva import CanvaEngine, CanvaEngineConfig
 from acis.engines.content import ContentEngine, ContentEngineConfig
+from acis.engines.publishing import PublishingEngine, PublishingEngineConfig
 from acis.engines.quality import QualityEngine, QualityEngineConfig
 from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.tiktok import TikTokVideoEngine
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.engines.virality import ViralityEngine
 from acis.integrations.base import IntegrationBundle
-
-
-class ReferencePublishingEngine:
-    def __init__(self, integrations: IntegrationBundle) -> None:
-        self._instagram = integrations.instagram
-
-    def publish(self, content: ContentPiece, assets: list[Asset]) -> PublishReceipt:
-        try:
-            return self._instagram.publish_carousel(content, assets)
-        except Exception as exc:  # noqa: BLE001 - degrade to "prepared" if live creds absent
-            return PublishReceipt(
-                content_id=content.id,
-                platform=Platform.INSTAGRAM,
-                status=PublishStatus.PREPARED,
-                detail=f"prepared (publish unavailable: {exc})",
-            )
 
 
 class ReferenceAnalyticsEngine:
@@ -119,6 +103,16 @@ def build_quality_engine(context: AppContext) -> QualityEngine:
     return QualityEngine(QualityEngineConfig.from_settings(context.settings))
 
 
+def build_publishing_engine(context: AppContext) -> PublishingEngine:
+    """Construct the production Publishing Engine (Sprint 8)."""
+    return PublishingEngine(
+        context.integrations.instagram,
+        context.integrations.tiktok,
+        repository=context.repository,
+        config=PublishingEngineConfig.from_settings(context.settings),
+    )
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -135,7 +129,8 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
         canva=build_canva_engine(context),  # Sprint 5: production engine
         tiktok=build_tiktok_video_engine(context),  # Sprint 6: production engine
         quality=build_quality_engine(context),  # Sprint 7: production engine
-        publishing=ReferencePublishingEngine(ints),
+        publishing=build_publishing_engine(context),  # Sprint 8: production engine
         analytics=ReferenceAnalyticsEngine(ints),
         learning=ReferenceLearningEngine(),
+        repository=context.repository,
     )
