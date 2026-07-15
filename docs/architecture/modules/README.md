@@ -23,8 +23,8 @@ is built **before** Virality so weak-evidence topics are discarded cheaply.
 | # | Engine | Stage | Status | Design |
 | --- | --- | --- | --- | --- |
 | 1 | Trend Intelligence | find topics | ✅ done | [trend-intelligence-engine.md](trend-intelligence-engine.md) |
-| 2 | Research | screen (cheap) + deep research | ⬜ next | [research-engine.md](research-engine.md) |
-| 3 | Virality | score screened topics | ⬜ | [virality-engine.md](virality-engine.md) |
+| 2 | Research | screen (cheap) + deep research | ✅ done | [research-engine.md](research-engine.md) |
+| 3 | Virality | score screened topics | ⬜ next | [virality-engine.md](virality-engine.md) |
 | 4 | Content | write carousel/script | ⬜ | [content-engine.md](content-engine.md) |
 | 5 | Canva Automation | design | ⬜ | [canva-automation-engine.md](canva-automation-engine.md) |
 | 6 | TikTok Video | derive video | ⬜ | [tiktok-video-engine.md](tiktok-video-engine.md) |

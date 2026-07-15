@@ -18,9 +18,9 @@ from acis.domain.models import (
     Asset,
     ContentPiece,
     DesignResult,
+    KnowledgeBase,
     PublishReceipt,
     QualityReport,
-    ResearchDossier,
     SourceAvailability,
     Topic,
     Trend,
@@ -51,7 +51,7 @@ class ResearchEngine(Protocol):
 
     def screen(self, topic: Topic) -> SourceAvailability: ...
 
-    def research(self, topic: Topic) -> ResearchDossier: ...
+    def research(self, topic: Topic) -> KnowledgeBase: ...
 
 
 @runtime_checkable
@@ -65,9 +65,9 @@ class ViralityEngine(Protocol):
 
 @runtime_checkable
 class ContentEngine(Protocol):
-    """Step 5: turn a dossier into platform-ready content."""
+    """Step 5: turn a knowledge base into platform-ready content."""
 
-    def create(self, topic: Topic, dossier: ResearchDossier) -> ContentPiece: ...
+    def create(self, topic: Topic, knowledge: KnowledgeBase) -> ContentPiece: ...
 
 
 @runtime_checkable
@@ -91,7 +91,7 @@ class QualityEngine(Protocol):
     def evaluate(
         self,
         content: ContentPiece,
-        dossier: ResearchDossier,
+        knowledge: KnowledgeBase,
         assets: list[Asset],
     ) -> QualityReport: ...
 

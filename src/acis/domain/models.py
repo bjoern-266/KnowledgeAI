@@ -3,9 +3,9 @@
 Each model is an immutable-ish pydantic object with a stable ``id`` so it can
 be persisted and referenced across stages. The flow is:
 
-    Trend ->(collect)-> Topic ->(score)-> Topic(+ViralityScore)
-          ->(research)-> ResearchDossier ->(create)-> ContentPiece
-          ->(design)-> DesignResult / VideoResult
+    Trend ->(collect)-> Topic ->(screen)-> SourceAvailability
+          ->(score)-> Topic(+ViralityScore) ->(research)-> KnowledgeBase
+          ->(create)-> ContentPiece ->(design)-> DesignResult / VideoResult
           ->(quality)-> QualityReport ->(publish)-> PublishReceipt
 
 Models never reference engines or integrations; they are pure data.
@@ -21,10 +21,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from acis.domain.enums import (
     ContentFormat,
+    FactType,
+    HookType,
     Platform,
     PublishStatus,
     QualityCheck,
+    SourceType,
     TopicCategory,
+    VisualType,
 )
 
 
@@ -88,15 +92,71 @@ class ViralityScore(BaseModel):
 # Research
 # --------------------------------------------------------------------------- #
 class Source(BaseModel):
-    """A citation backing a fact."""
+    """A citation backing a fact, with the metadata needed to weight it.
+
+    ``weight`` combines credibility, recency, primary-vs-secondary, and
+    scientific standing into a single [0..1] score the Research/Quality engines
+    use when deciding how much to trust a claim.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(default_factory=_uuid)
+    url: str
+    title: str = ""
+    publisher: str = ""
+    institution: str = ""
+    #: Credibility of the source itself [0..1] (tier-based, see CONTENT_INTELLIGENCE §2).
+    reliability: float = Field(default=0.5, ge=0.0, le=1.0)
+    source_type: SourceType = SourceType.SECONDARY
+    scientific: bool = False
+    published_at: datetime | None = None  # when the source was published (for recency)
+    retrieved_at: datetime = Field(default_factory=_now)
+
+    def weight(self, *, recency_years: float = 5.0) -> float:
+        """Combined trust weight in [0..1]."""
+        score = self.reliability
+        if self.source_type is SourceType.PRIMARY:
+            score += 0.10
+        if self.scientific:
+            score += 0.05
+        if self.published_at is not None:
+            age_years = (_now() - self.published_at).days / 365.25
+            score += 0.05 if age_years <= recency_years else -0.05
+        return max(0.0, min(1.0, round(score, 4)))
+
+
+class RetrievedDocument(BaseModel):
+    """A document returned by a research source adapter (retrieval layer).
+
+    Carries source metadata plus candidate claim ``snippets`` extracted verbatim
+    from the document. The Research Engine may only build facts from these
+    snippets - never from the LLM's own knowledge (no-hallucination rule).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     url: str
     title: str = ""
     publisher: str = ""
+    institution: str = ""
     reliability: float = Field(default=0.5, ge=0.0, le=1.0)
-    retrieved_at: datetime = Field(default_factory=_now)
+    source_type: SourceType = SourceType.SECONDARY
+    scientific: bool = False
+    published_at: datetime | None = None
+    snippets: list[str] = Field(default_factory=list)
+
+    def to_source(self) -> Source:
+        return Source(
+            url=self.url,
+            title=self.title,
+            publisher=self.publisher,
+            institution=self.institution,
+            reliability=self.reliability,
+            source_type=self.source_type,
+            scientific=self.scientific,
+            published_at=self.published_at,
+        )
 
 
 class SourceAvailability(BaseModel):
@@ -116,17 +176,119 @@ class SourceAvailability(BaseModel):
     reason: str = ""
 
 
-class ResearchDossier(DomainModel):
-    """Verified facts and sources gathered for a topic (full research output)."""
+class Fact(DomainModel):
+    """A single typed, source-backed fact with a confidence score."""
+
+    topic_id: str
+    statement: str
+    fact_type: FactType = FactType.KEY_CLAIM
+    #: 0-100. Scales with number of corroborating sources and their weight.
+    confidence: int = Field(default=0, ge=0, le=100)
+    source_ids: list[str] = Field(default_factory=list)
+    #: Which visual treatments suit this fact (drives the Canva Engine).
+    visual_potential: list[VisualType] = Field(default_factory=list)
+    #: True when not clearly corroborated - flagged, never dropped silently.
+    uncertain: bool = False
+    notes: str = ""
+
+    @property
+    def supporting_sources(self) -> int:
+        return len(self.source_ids)
+
+
+class Statistic(DomainModel):
+    """A numeric fact broken out for easy charting."""
+
+    topic_id: str
+    label: str
+    value: str  # kept as text to preserve units/precision, e.g. "3.2 billion"
+    unit: str = ""
+    as_of: str = ""  # the point in time the figure refers to
+    source_ids: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=0, ge=0, le=100)
+
+
+class TimelineEntry(DomainModel):
+    """A dated event, broken out for timeline visuals."""
+
+    topic_id: str
+    when: str  # human date/period, e.g. "1912" or "3rd century BCE"
+    label: str
+    description: str = ""
+    source_ids: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=0, ge=0, le=100)
+
+
+class Definition(DomainModel):
+    """A term and its meaning, broken out for infobox visuals."""
+
+    topic_id: str
+    term: str
+    definition: str
+    source_ids: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=0, ge=0, le=100)
+
+
+class HookCandidate(DomainModel):
+    """A ready-to-use opening hook detected during research."""
+
+    topic_id: str
+    hook_type: HookType
+    text: str
+    fact_id: str = ""
+    strength: int = Field(default=0, ge=0, le=100)
+
+
+class VisualIdea(DomainModel):
+    """A concrete slide/graphic suggestion for the Canva Engine."""
+
+    topic_id: str
+    visual_type: VisualType
+    description: str
+    fact_ids: list[str] = Field(default_factory=list)
+    priority: int = Field(default=50, ge=0, le=100)
+
+
+class KnowledgeBase(DomainModel):
+    """The structured knowledge object produced by the Research Engine.
+
+    This is NOT free text or a list of search hits: it is a typed dataset that
+    later engines consume directly. The Content Engine never researches on its
+    own - it draws entirely from this object. Everything here traces back to a
+    retrieved source; anything not corroborated is flagged in ``uncertainties``
+    or marked ``uncertain`` on the fact, never invented.
+    """
 
     topic_id: str
     summary: str = ""
-    facts: list[str] = Field(default_factory=list)
+    key_claims: list[str] = Field(default_factory=list)
+    facts: list[Fact] = Field(default_factory=list)
+    statistics: list[Statistic] = Field(default_factory=list)
+    timeline: list[TimelineEntry] = Field(default_factory=list)
+    definitions: list[Definition] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
+    hook_candidates: list[HookCandidate] = Field(default_factory=list)
+    visual_ideas: list[VisualIdea] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    #: Overall confidence in the knowledge base [0..1].
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
     @property
     def source_count(self) -> int:
         return len(self.sources)
+
+    @property
+    def fact_count(self) -> int:
+        return len(self.facts)
+
+    @property
+    def charts(self) -> list[VisualIdea]:
+        return [v for v in self.visual_ideas if v.visual_type is VisualType.CHART]
+
+    @property
+    def images(self) -> list[VisualIdea]:
+        return [v for v in self.visual_ideas if v.visual_type is VisualType.IMAGE]
 
 
 # --------------------------------------------------------------------------- #
@@ -148,7 +310,7 @@ class ContentPiece(DomainModel):
     """The written, structured content ready to be designed/rendered."""
 
     topic_id: str
-    dossier_id: str
+    knowledge_id: str
     platform: Platform
     content_format: ContentFormat
     hook: str = ""

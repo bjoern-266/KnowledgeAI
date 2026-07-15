@@ -51,3 +51,51 @@ class PublishStatus(StrEnum):
     PREPARED = "prepared"  # ready but credentials absent -> awaiting manual go
     FAILED = "failed"
     REJECTED = "rejected"  # blocked by the quality gate
+
+
+class FactType(StrEnum):
+    """Typed classification of a researched fact (Research Engine, Sprint 2).
+
+    Typing facts up front lets later engines (Content, Canva, Quality) build
+    slides and pick visuals without re-analysing free text.
+    """
+
+    KEY_CLAIM = "key_claim"
+    DEFINITION = "definition"
+    STATISTIC = "statistic"
+    HISTORICAL_EVENT = "historical_event"
+    DATE = "date"
+    QUOTE = "quote"
+    CAUSE = "cause"
+    EFFECT = "effect"
+    COMPARISON = "comparison"
+    RECORD = "record"
+    MYTH = "myth"
+    WARNING = "warning"
+
+
+class VisualType(StrEnum):
+    """How a fact could be rendered as a slide/graphic (drives the Canva Engine)."""
+
+    CHART = "chart"
+    MAP = "map"
+    TIMELINE = "timeline"
+    BEFORE_AFTER = "before_after"
+    INFOBOX = "infobox"
+    IMAGE = "image"
+
+
+class HookType(StrEnum):
+    """A candidate hook the Content Engine can open with."""
+
+    SURPRISING_NUMBER = "surprising_number"
+    CONTROVERSIAL_FACT = "controversial_fact"
+    COMMON_MISCONCEPTION = "common_misconception"
+    INCREDIBLE_RECORD = "incredible_record"
+
+
+class SourceType(StrEnum):
+    """Whether a source is the origin of a claim or reports it second-hand."""
+
+    PRIMARY = "primary"
+    SECONDARY = "secondary"

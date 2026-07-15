@@ -28,16 +28,15 @@ from acis.domain.models import (
     Asset,
     ContentPiece,
     DesignResult,
+    KnowledgeBase,
     PublishReceipt,
     QualityReport,
-    ResearchDossier,
     Slide,
-    Source,
-    SourceAvailability,
     Topic,
     VideoResult,
     ViralityScore,
 )
+from acis.engines.research import ResearchEngine, ResearchEngineConfig
 from acis.engines.trend import TrendEngine, TrendEngineConfig
 from acis.integrations.base import IntegrationBundle
 
@@ -64,66 +63,35 @@ class ReferenceViralityEngine:
         return sorted(topics, key=lambda t: t.virality.value if t.virality else 0.0, reverse=True)
 
 
-class ReferenceResearchEngine:
-    def __init__(self, integrations: IntegrationBundle, min_sources: int) -> None:
-        self._llm = integrations.llm
-        self._min_sources = min_sources
-
-    def screen(self, topic: Topic) -> SourceAvailability:
-        # Cheap pre-check: how many candidate sources exist for this topic?
-        # The reference stand-in assumes the mock encyclopedia can supply the
-        # minimum for any well-formed topic; a real engine would query sources.
-        count = self._min_sources if topic.title else 0
-        sufficient = count >= self._min_sources
-        return SourceAvailability(
-            topic_id=topic.id,
-            source_count=count,
-            sufficient=sufficient,
-            reason="" if sufficient else "no candidate sources found",
-        )
-
-    def research(self, topic: Topic) -> ResearchDossier:
-        completion = self._llm.complete(
-            f"Research verified facts about: {topic.title}",
-            system="You are a rigorous fact researcher.",
-        )
-        facts = [line[2:] for line in completion.splitlines() if line.startswith("- ")]
-        sources = [
-            Source(
-                url=f"https://sources.example/{topic.id[:8]}/{i}",
-                title=f"Reference source {i + 1}",
-                publisher="mock-encyclopedia",
-                reliability=0.9,
-            )
-            for i in range(max(self._min_sources, 2))
-        ]
-        return ResearchDossier(
-            topic_id=topic.id,
-            summary=f"Verified overview of {topic.title}.",
-            facts=facts or ["Placeholder fact."],
-            sources=sources,
-        )
-
-
 class ReferenceContentEngine:
     def __init__(self, slides: int) -> None:
         self._slides = slides
 
-    def create(self, topic: Topic, dossier: ResearchDossier) -> ContentPiece:
-        slides = [Slide(index=0, headline=topic.title, body=dossier.summary, highlight=topic.angle)]
-        for i, fact in enumerate(dossier.facts[: self._slides - 2], start=1):
-            slides.append(Slide(index=i, headline=f"Fact {i}", body=fact, highlight=""))
+    def create(self, topic: Topic, knowledge: KnowledgeBase) -> ContentPiece:
+        # Draw entirely from the KnowledgeBase - the Content Engine never researches.
+        hook = knowledge.hook_candidates[0].text if knowledge.hook_candidates else topic.angle
+        slides = [Slide(index=0, headline=topic.title, body=knowledge.summary, highlight=hook)]
+        for i, fact in enumerate(knowledge.facts[: self._slides - 2], start=1):
+            highlight = fact.statement if fact.fact_type.value in ("statistic", "record") else ""
+            slides.append(
+                Slide(
+                    index=i,
+                    headline=fact.fact_type.value.title(),
+                    body=fact.statement,
+                    highlight=highlight,
+                )
+            )
         slides.append(
             Slide(index=len(slides), headline="Save & share", body="Follow for more.", highlight="")
         )
         return ContentPiece(
             topic_id=topic.id,
-            dossier_id=dossier.id,
+            knowledge_id=knowledge.id,
             platform=Platform.INSTAGRAM,
             content_format=ContentFormat.INSTAGRAM_CAROUSEL,
-            hook=f"{topic.title}: what most people get wrong",
+            hook=hook,
             slides=slides,
-            caption=f"{dossier.summary} Sources in comments.",
+            caption=f"{knowledge.summary} Sources in comments.",
             hashtags=["#knowledge", f"#{topic.category.value}"],
             cta="Save this for later.",
             status=PublishStatus.DRAFT,
@@ -157,19 +125,23 @@ class ReferenceQualityEngine:
     def evaluate(
         self,
         content: ContentPiece,
-        dossier: ResearchDossier,
+        knowledge: KnowledgeBase,
         assets: list[Asset],
     ) -> QualityReport:
         scores: dict[QualityCheck, float] = {}
         issues: list[str] = []
 
         scores[QualityCheck.SOURCE_CHECK] = (
-            1.0 if dossier.source_count >= self._q.min_sources_per_topic else 0.0
+            1.0 if knowledge.source_count >= self._q.min_sources_per_topic else 0.0
         )
         if scores[QualityCheck.SOURCE_CHECK] < 1.0:
             issues.append("insufficient sources")
 
-        scores[QualityCheck.FACT_CHECK] = 1.0 if dossier.facts else 0.0
+        # Prefer corroborated facts; the knowledge base already flags uncertain ones.
+        corroborated = [f for f in knowledge.facts if not f.uncertain]
+        scores[QualityCheck.FACT_CHECK] = knowledge.confidence if corroborated else 0.0
+        if not corroborated:
+            issues.append("no corroborated facts")
         scores[QualityCheck.SPELLING_CHECK] = 1.0 if content.slides else 0.0
         scores[QualityCheck.DESIGN_CHECK] = 1.0 if assets else 0.0
 
@@ -234,6 +206,16 @@ def build_trend_engine(context: AppContext) -> TrendEngine:
     )
 
 
+def build_research_engine(context: AppContext) -> ResearchEngine:
+    """Construct the production Research Engine (Sprint 2)."""
+    s = context.settings
+    return ResearchEngine(
+        sources=[context.integrations.research],
+        repository=context.repository,
+        config=ResearchEngineConfig.from_settings(s.quality.min_sources_per_topic),
+    )
+
+
 def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     """Assemble a runnable pipeline: production engines where available, reference
     stand-ins for the rest. As each sprint lands, its reference engine here is
@@ -244,8 +226,8 @@ def build_reference_pipeline(context: AppContext) -> ContentPipeline:
     return ContentPipeline(
         settings=s,
         trend=build_trend_engine(context),  # Sprint 1: production engine
+        research=build_research_engine(context),  # Sprint 2: production engine
         virality=ReferenceViralityEngine(),
-        research=ReferenceResearchEngine(ints, s.quality.min_sources_per_topic),
         content=ReferenceContentEngine(s.content.instagram_carousel_slides),
         canva=ReferenceCanvaEngine(ints),
         tiktok=ReferenceTikTokEngine(),

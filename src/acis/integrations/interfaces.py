@@ -17,6 +17,7 @@ from acis.domain.models import (
     ContentPiece,
     DesignResult,
     PublishReceipt,
+    RetrievedDocument,
     Trend,
     VideoResult,
 )
@@ -27,6 +28,17 @@ class TrendSourcePort(Protocol):
     """A source of trending signals (Google Trends, TikTok, news, ...)."""
 
     def fetch_trends(self, *, region: str = "global", limit: int = 20) -> list[Trend]: ...
+
+
+@runtime_checkable
+class ResearchSourcePort(Protocol):
+    """A retrieval source for research (encyclopedic, academic, official stats).
+
+    Returns documents with candidate claim snippets. The Research Engine builds
+    facts ONLY from these snippets - it never invents claims.
+    """
+
+    def search(self, query: str, *, limit: int = 10) -> list[RetrievedDocument]: ...
 
 
 @runtime_checkable

@@ -99,6 +99,7 @@ class IntegrationsConfig(BaseModel):
     tiktok: IntegrationConfig = Field(default_factory=IntegrationConfig)
     openai: IntegrationConfig = Field(default_factory=IntegrationConfig)
     trends: IntegrationConfig = Field(default_factory=IntegrationConfig)
+    research: IntegrationConfig = Field(default_factory=IntegrationConfig)
     analytics: IntegrationConfig = Field(default_factory=IntegrationConfig)
 
     def resolve_mode(self, name: str) -> IntegrationMode:

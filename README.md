@@ -37,7 +37,7 @@ src/acis/
 ├── domain/        # shared data contracts (the ONLY coupling between modules)
 ├── data/          # repository pattern: in-memory + sqlite backends
 ├── integrations/  # the ONLY layer allowed to call external APIs (mock + live)
-│   ├── canva/  instagram/  tiktok/  openai/  trends/  analytics/
+│   ├── canva/  instagram/  tiktok/  openai/  trends/  research/  analytics/
 ├── engines/       # the 10 business modules — interfaces now, impls after review
 └── reference.py   # foundation scaffolding proving the end-to-end flow
 ```
@@ -56,6 +56,7 @@ pip install -e ".[dev]"
 acis config              # show resolved configuration (secrets redacted)
 acis health              # check every integration adapter
 acis topics              # Sprint 1: ranked, de-duplicated candidate topics
+acis research --topic X  # Sprint 2: structured Knowledge Base for a topic
 acis run-once            # one full autonomous cycle: trend → publish → learn
 pytest                   # run the test suite
 ```

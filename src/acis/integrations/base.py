@@ -24,6 +24,7 @@ from acis.integrations.interfaces import (
     CanvaPort,
     InstagramPort,
     LLMPort,
+    ResearchSourcePort,
     TikTokPort,
     TrendSourcePort,
 )
@@ -77,6 +78,7 @@ class IntegrationBundle:
     """The complete set of integration ports the application uses."""
 
     trends: TrendSourcePort
+    research: ResearchSourcePort
     llm: LLMPort
     canva: CanvaPort
     instagram: InstagramPort
@@ -89,6 +91,7 @@ class IntegrationBundle:
             a
             for a in (
                 self.trends,
+                self.research,
                 self.llm,
                 self.canva,
                 self.instagram,
@@ -124,12 +127,14 @@ def build_integrations(settings: Settings) -> IntegrationBundle:
     from acis.integrations.canva.factory import build_canva
     from acis.integrations.instagram.factory import build_instagram
     from acis.integrations.openai.factory import build_llm
+    from acis.integrations.research.factory import build_research_source
     from acis.integrations.tiktok.factory import build_tiktok
     from acis.integrations.trends.factory import build_trends
 
     resolve = settings.integrations.resolve_mode
     return IntegrationBundle(
         trends=build_trends(resolve("trends"), _config_for(settings, "trends")),
+        research=build_research_source(resolve("research"), _config_for(settings, "research")),
         llm=build_llm(resolve("openai"), _config_for(settings, "openai")),
         canva=build_canva(resolve("canva"), _config_for(settings, "canva")),
         instagram=build_instagram(resolve("instagram"), _config_for(settings, "instagram")),

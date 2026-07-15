@@ -4,6 +4,7 @@ Commands:
     acis config            Show the resolved configuration (secrets redacted).
     acis health            Report the health of every integration adapter.
     acis topics            List ranked candidate topics (Trend Intelligence).
+    acis research          Build the structured Knowledge Base for a topic.
     acis run-once          Execute one full pipeline cycle (mock-safe).
     acis start             Run the scheduler loop (Ctrl-C to stop).
 
@@ -69,14 +70,62 @@ def _cmd_topics(ctx: AppContext, *, limit: int) -> int:
     return 0
 
 
+def _cmd_research(ctx: AppContext, *, title: str | None) -> int:
+    """Sprint 2 deliverable: the structured Knowledge Base for a topic."""
+    from acis.reference import build_research_engine, build_trend_engine
+
+    with ctx:
+        if title:
+            from acis.domain.enums import TopicCategory
+            from acis.domain.models import Topic
+
+            topic = Topic(title=title, category=TopicCategory.CURIOSITIES)
+        else:
+            trend = build_trend_engine(ctx)
+            topic = trend.to_topics(trend.discover())[0]
+
+        kb = build_research_engine(ctx).research(topic)
+        print(f"Knowledge base: {topic.title}  (confidence {kb.confidence:.2f})\n")
+        print("Summary:", kb.summary, "\n")
+        print(f"Facts ({kb.fact_count}):")
+        for fact in kb.facts:
+            flag = "  ~uncertain" if fact.uncertain else ""
+            visuals = "/".join(v.value for v in fact.visual_potential)
+            conf, ftype = fact.confidence, fact.fact_type.value
+            print(f"  [{conf:>3}] {ftype:<16} {fact.statement} ({visuals}){flag}")
+        print(
+            f"\nStatistics: {len(kb.statistics)} | Timeline: {len(kb.timeline)} | "
+            f"Definitions: {len(kb.definitions)} | Sources: {kb.source_count}"
+        )
+        print(
+            "Hooks     :",
+            ", ".join(f"{h.hook_type.value}({h.strength})" for h in kb.hook_candidates) or "-",
+        )
+        print(
+            "Visuals   :",
+            ", ".join(f"{v.visual_type.value}({v.priority})" for v in kb.visual_ideas) or "-",
+        )
+        if kb.open_questions:
+            print("Open Qs   :", "; ".join(kb.open_questions))
+    return 0
+
+
 def _cmd_run_once(ctx: AppContext, *, publish: bool) -> int:
     from acis.reference import build_reference_pipeline
 
     with ctx:
         pipeline = build_reference_pipeline(ctx)
         result = pipeline.run_once(publish=publish)
+        kb = result.knowledge
         print("Topic     :", result.topic.title, f"({result.topic.category.value})")
-        print("Sources   :", result.dossier.source_count)
+        print(
+            "Knowledge :",
+            f"{kb.fact_count} facts, {kb.source_count} sources, conf {kb.confidence:.2f}",
+        )
+        corroborated = sum(not f.uncertain for f in kb.facts)
+        print("  facts   :", f"{corroborated} corroborated, {len(kb.uncertainties)} uncertain")
+        print("  hooks   :", ", ".join(h.hook_type.value for h in kb.hook_candidates[:3]) or "-")
+        print("  visuals :", ", ".join(v.visual_type.value for v in kb.visual_ideas[:4]) or "-")
         print("Slides    :", len(result.content.slides))
         print("Design    :", result.design.design_id, f"({len(result.design.assets)} assets)")
         print("Video     :", result.video.asset.uri)
@@ -127,6 +176,9 @@ def build_parser() -> argparse.ArgumentParser:
     topics = sub.add_parser("topics", help="List candidate topics (Trend Intelligence)")
     topics.add_argument("--limit", type=int, default=60, help="Max topics to emit")
 
+    research = sub.add_parser("research", help="Build the Knowledge Base for a topic")
+    research.add_argument("--topic", default=None, help="Topic title (default: top candidate)")
+
     run = sub.add_parser("run-once", help="Run one pipeline cycle")
     run.add_argument("--no-publish", action="store_true", help="Skip the publish step")
 
@@ -144,6 +196,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_health(ctx)
         if args.command == "topics":
             return _cmd_topics(ctx, limit=args.limit)
+        if args.command == "research":
+            return _cmd_research(ctx, title=args.topic)
         if args.command == "run-once":
             return _cmd_run_once(ctx, publish=not args.no_publish)
         if args.command == "start":

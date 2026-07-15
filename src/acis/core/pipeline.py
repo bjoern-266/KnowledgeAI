@@ -20,9 +20,9 @@ from acis.core.logging import BoundLogger, get_logger
 from acis.domain.models import (
     ContentPiece,
     DesignResult,
+    KnowledgeBase,
     PublishReceipt,
     QualityReport,
-    ResearchDossier,
     Topic,
     VideoResult,
 )
@@ -45,7 +45,7 @@ class PipelineResult:
     """The artifacts produced by one end-to-end run."""
 
     topic: Topic
-    dossier: ResearchDossier
+    knowledge: KnowledgeBase
     content: ContentPiece
     design: DesignResult
     video: VideoResult
@@ -102,10 +102,10 @@ class ContentPipeline:
         self.log.info("pipeline.topic_selected", topic=topic.title, category=topic.category.value)
 
         # 5. Deep research (verified facts) for the winning topic only.
-        dossier = self.research.research(topic)
+        knowledge = self.research.research(topic)
 
         # 6. Create platform content (carousel is the primary artifact).
-        content = self.content.create(topic, dossier)
+        content = self.content.create(topic, knowledge)
 
         # 7. Design automatically in Canva.
         design = self.canva.design(content)
@@ -114,7 +114,7 @@ class ContentPipeline:
         video = self.tiktok.render(content, design)
 
         # 9. Quality gate - fact/source/spelling/design/score checks.
-        report = self.quality.evaluate(content, dossier, design.assets)
+        report = self.quality.evaluate(content, knowledge, design.assets)
         if not report.passed:
             self.log.warning(
                 "pipeline.quality_rejected",
@@ -130,7 +130,7 @@ class ContentPipeline:
 
         result = PipelineResult(
             topic=topic,
-            dossier=dossier,
+            knowledge=knowledge,
             content=content,
             design=design,
             video=video,

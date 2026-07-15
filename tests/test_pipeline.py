@@ -19,8 +19,10 @@ def test_full_run_produces_all_artifacts(context):
     assert result.topic.title
     assert result.topic.virality is not None
 
-    # Research gathered multiple sources.
-    assert result.dossier.source_count >= 2
+    # Research produced a structured knowledge base with multiple sources.
+    assert result.knowledge.source_count >= 2
+    assert result.knowledge.facts
+    assert result.knowledge.confidence > 0.0
 
     # An Instagram carousel exists.
     assert len(result.content.slides) >= 3

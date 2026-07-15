@@ -1,5 +1,9 @@
 # Research Engine — Design (impl. order #2)
 
+> **Status: ✅ Implemented (Sprint 2)** — `acis.engines.research.ResearchEngine`,
+> wired via `build_research_engine`. Try it: `acis research --topic "..."`.
+> Produces a structured `KnowledgeBase` (not free text) via a new
+> `ResearchSourcePort` retrieval integration (mock + live skeleton).
 > Interface: `acis.engines.interfaces.ResearchEngine`
 > Business rules: [CONTENT_INTELLIGENCE.md §2, §4](../../../CONTENT_INTELLIGENCE.md)
 > Ordering rationale: [ADR-0005](../adr/0005-pipeline-ordering-screen-score-research.md)
@@ -14,8 +18,11 @@ cost-efficiently by splitting cheap screening from expensive research.
 ## 2. Input / output data (domain models)
 - `screen`: **in** `Topic` → **out** `SourceAvailability`
   (`source_count`, `sufficient`, `candidate_sources`, `reason`).
-- `research`: **in** `Topic` → **out** `ResearchDossier`
-  (`summary`, `facts`, `sources: list[Source]` with `reliability`).
+- `research`: **in** `Topic` → **out** `KnowledgeBase` — a structured object:
+  `summary`, `key_claims`, typed `facts` (each with `confidence` 0-100,
+  `source_ids`, `visual_potential`, `uncertain`), `statistics`, `timeline`,
+  `definitions`, `sources` (weighted), `hook_candidates`, `visual_ideas`,
+  `uncertainties`, `open_questions`, overall `confidence`.
 
 ## 3. Interfaces to other modules
 - **Consumes:** research/search `TrendSourcePort`-style adapters + `LLMPort`

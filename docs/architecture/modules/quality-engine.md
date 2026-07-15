@@ -9,7 +9,7 @@ report whether it clears the threshold. It only *reports*; the pipeline enforces
 the hard stop, so the rule lives in exactly one place.
 
 ## 2. Input / output data (domain models)
-- **In:** `ContentPiece`, `ResearchDossier`, `assets: list[Asset]`.
+- **In:** `ContentPiece`, `KnowledgeBase`, `assets: list[Asset]`.
 - **Out:** `QualityReport` (`scores: dict[QualityCheck, float]`, `passed`,
   `threshold`, `issues`). `overall` is derived from `OVERALL_SCORE`.
 

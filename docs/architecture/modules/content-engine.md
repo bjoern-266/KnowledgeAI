@@ -12,7 +12,8 @@ carousel (primary) and the material the TikTok Video Engine will script from.
 - Keep every `highlight` mapped to a verified dossier fact.
 
 ## 2. Input / output data (domain models)
-- **In:** `Topic`, `ResearchDossier`.
+- **In:** `Topic`, `KnowledgeBase` (typed facts, hooks, visual ideas — the
+  Content Engine consumes these directly and never researches on its own).
 - **Out:** `ContentPiece` (`hook`, `slides: list[Slide]`, `caption`, `hashtags`,
   `cta`, `platform`, `content_format`, `status=DRAFT`). Each `Slide` separates
   `headline`, `body`, and `highlight` (the accent-styled key number/fact).

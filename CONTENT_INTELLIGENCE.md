@@ -99,7 +99,10 @@ scores for later reconsideration and for the Learning Engine.
 ## 4. How facts are validated
 
 Deep research (`ResearchEngine.research`) runs for the **winning topic only** and
-produces a `ResearchDossier` (facts + `Source[]`).
+produces a structured `KnowledgeBase`: typed `facts` (each with a 0-100
+confidence, source references, and visual potential), plus `statistics`,
+`timeline`, `definitions`, weighted `sources`, `hook_candidates`, `visual_ideas`,
+`uncertainties`, and `open_questions`.
 
 Validation pipeline:
 1. **Retrieve** from prioritised sources (§2).

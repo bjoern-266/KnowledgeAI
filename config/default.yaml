@@ -40,6 +40,8 @@ integrations:
     model: "gpt-4o"
   trends:
     mode: null
+  research:
+    mode: null                  # retrieval source for facts (Research Engine)
   analytics:
     mode: null
 
