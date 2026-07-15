@@ -1,0 +1,17 @@
+# Production overrides. Loaded when ACIS_ENV=production.
+# Secrets are still injected via environment variables only.
+env: "production"
+
+log:
+  level: "INFO"
+  format: "json"
+
+storage:
+  backend: "sqlite"
+  sqlite_path: "var/acis.db"
+
+integrations:
+  default_mode: "live"   # requires credentials to be present via env vars
+
+quality:
+  min_score: 0.80        # stricter publish gate in production

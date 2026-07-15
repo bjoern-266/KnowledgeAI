@@ -1,0 +1,18 @@
+# Development overrides. Loaded when ACIS_ENV=development.
+env: "development"
+
+log:
+  level: "DEBUG"
+  format: "console"
+
+storage:
+  backend: "sqlite"
+  sqlite_path: "var/acis-dev.db"
+
+integrations:
+  default_mode: "mock"   # never hit real APIs during development
+
+scheduler:
+  jobs:
+    content_pipeline:
+      interval_seconds: 300   # faster loop for local iteration

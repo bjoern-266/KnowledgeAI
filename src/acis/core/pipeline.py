@@ -1,0 +1,134 @@
+"""Content pipeline orchestrator.
+
+Wires the ten workflow stages together, depending only on the engine
+*interfaces* from :mod:`acis.engines.interfaces`. It knows the order of steps
+and how data flows between them; it knows nothing about how any engine works or
+whether its integrations are mock or live.
+
+The quality gate is enforced here: content scoring below the configured
+threshold is rejected and never published, satisfying the project's hard
+requirement.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from acis.core.config import Settings
+from acis.core.errors import QualityGateError
+from acis.core.logging import BoundLogger, get_logger
+from acis.domain.models import (
+    ContentPiece,
+    DesignResult,
+    PublishReceipt,
+    QualityReport,
+    ResearchDossier,
+    Topic,
+    VideoResult,
+)
+from acis.engines.interfaces import (
+    AnalyticsEngine,
+    CanvaAutomationEngine,
+    ContentEngine,
+    LearningEngine,
+    PublishingEngine,
+    QualityEngine,
+    ResearchEngine,
+    TikTokVideoEngine,
+    TrendIntelligenceEngine,
+    ViralityEngine,
+)
+
+
+@dataclass
+class PipelineResult:
+    """The artifacts produced by one end-to-end run."""
+
+    topic: Topic
+    dossier: ResearchDossier
+    content: ContentPiece
+    design: DesignResult
+    video: VideoResult
+    quality: QualityReport
+    receipts: list[PublishReceipt] = field(default_factory=list)
+    metrics: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class ContentPipeline:
+    """Orchestrates the full trend -> publish -> learn workflow."""
+
+    settings: Settings
+    trend: TrendIntelligenceEngine
+    virality: ViralityEngine
+    research: ResearchEngine
+    content: ContentEngine
+    canva: CanvaAutomationEngine
+    tiktok: TikTokVideoEngine
+    quality: QualityEngine
+    publishing: PublishingEngine
+    analytics: AnalyticsEngine
+    learning: LearningEngine
+
+    def __post_init__(self) -> None:
+        self.log: BoundLogger = BoundLogger(get_logger("acis.pipeline"))
+
+    def run_once(self, *, region: str = "global", publish: bool = True) -> PipelineResult:
+        """Execute a single full cycle and return everything produced."""
+        # 1-2. Detect trends & collect topics.
+        trends = self.trend.discover(region=region)
+        topics = self.trend.to_topics(trends)
+        if not topics:
+            raise QualityGateError("No topics could be derived from trends")
+
+        # 3. Score virality and pick the strongest topic.
+        ranked = self.virality.rank(topics)
+        topic = ranked[0]
+        self.log.info("pipeline.topic_selected", topic=topic.title, category=topic.category.value)
+
+        # 4. Research verified facts.
+        dossier = self.research.research(topic)
+
+        # 5. Create platform content (carousel is the primary artifact).
+        content = self.content.create(topic, dossier)
+
+        # 6. Design automatically in Canva.
+        design = self.canva.design(content)
+
+        # (derive) TikTok video from the same content/design.
+        video = self.tiktok.render(content, design)
+
+        # Quality gate - fact/source/spelling/design/score checks.
+        report = self.quality.evaluate(content, dossier, design.assets)
+        if not report.passed:
+            self.log.warning(
+                "pipeline.quality_rejected",
+                score=report.overall,
+                threshold=report.threshold,
+                issues=len(report.issues),
+            )
+            raise QualityGateError(
+                f"Content rejected by quality gate (score={report.overall:.2f} "
+                f"< {report.threshold:.2f})",
+                context={"content_id": content.id, "issues": report.issues},
+            )
+
+        result = PipelineResult(
+            topic=topic,
+            dossier=dossier,
+            content=content,
+            design=design,
+            video=video,
+            quality=report,
+        )
+
+        # 7. Publish (or prepare, when credentials are absent).
+        if publish:
+            receipt = self.publishing.publish(content, design.assets)
+            result.receipts.append(receipt)
+            # 8-9. Collect metrics and learn from them.
+            result.metrics = self.analytics.collect(receipt)
+            self.learning.learn(receipt, result.metrics)
+
+        self.log.info("pipeline.completed", content_id=content.id, published=publish)
+        return result

@@ -1,0 +1,87 @@
+# =============================================================================
+# ACIS default configuration
+# -----------------------------------------------------------------------------
+# Base layer, always loaded. Overridden by config/<env>.yaml, then by
+# environment variables (ACIS_*), then by .env. NEVER put secrets here.
+# =============================================================================
+
+app_name: "ACIS"
+env: "development"
+
+log:
+  level: "INFO"
+  format: "console"   # console | json
+
+storage:
+  backend: "sqlite"   # memory | sqlite
+  sqlite_path: "var/acis.db"
+
+scheduler:
+  timezone: "UTC"
+  # Named jobs the orchestrator can register. Cadence is expressed in seconds.
+  jobs:
+    content_pipeline:
+      interval_seconds: 21600   # every 6h: full trend -> publish cycle
+      enabled: true
+    analytics_sync:
+      interval_seconds: 3600    # hourly performance pull
+      enabled: true
+
+integrations:
+  default_mode: "mock"          # mock | live  (fallback for every adapter)
+  canva:
+    mode: null                  # null => inherit default_mode
+  instagram:
+    mode: null
+  tiktok:
+    mode: null
+  openai:
+    mode: null
+    model: "gpt-4o"
+  trends:
+    mode: null
+  analytics:
+    mode: null
+
+quality:
+  min_score: 0.75               # publish gate threshold [0..1]
+  require_fact_check: true
+  require_source_check: true
+  require_spelling_check: true
+  require_design_check: true
+  min_sources_per_topic: 2
+
+content:
+  platforms: ["instagram", "tiktok"]
+  instagram_carousel_slides: 8
+  topics:
+    - "science"
+    - "history"
+    - "technology"
+    - "ai"
+    - "economy"
+    - "psychology"
+    - "health"
+    - "nutrition"
+    - "space"
+    - "nature"
+    - "geography"
+    - "curiosities"
+    - "myth_vs_reality"
+    - "statistics"
+    - "rankings"
+
+branding:
+  design_language: ["premium", "modern", "technical", "minimalist"]
+  palette:
+    background: ["#000000", "#1C1C1C", "#2B2B2B", "#333333"]  # black/anthracite/graphite/carbon
+    text_primary: "#FFFFFF"
+    text_secondary: "#B0B0B0"
+    accent: "#FFD400"          # strong yellow, headings/numbers/keyfacts/CTA only
+  accent_usage:
+    - "headings"
+    - "numbers"
+    - "statistics"
+    - "key_facts"
+    - "highlights"
+    - "cta"
