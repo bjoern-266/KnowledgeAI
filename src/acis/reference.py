@@ -33,6 +33,7 @@ from acis.domain.models import (
     ResearchDossier,
     Slide,
     Source,
+    SourceAvailability,
     Topic,
     Trend,
     VideoResult,
@@ -89,6 +90,19 @@ class ReferenceResearchEngine:
     def __init__(self, integrations: IntegrationBundle, min_sources: int) -> None:
         self._llm = integrations.llm
         self._min_sources = min_sources
+
+    def screen(self, topic: Topic) -> SourceAvailability:
+        # Cheap pre-check: how many candidate sources exist for this topic?
+        # The reference stand-in assumes the mock encyclopedia can supply the
+        # minimum for any well-formed topic; a real engine would query sources.
+        count = self._min_sources if topic.title else 0
+        sufficient = count >= self._min_sources
+        return SourceAvailability(
+            topic_id=topic.id,
+            source_count=count,
+            sufficient=sufficient,
+            reason="" if sufficient else "no candidate sources found",
+        )
 
     def research(self, topic: Topic) -> ResearchDossier:
         completion = self._llm.complete(

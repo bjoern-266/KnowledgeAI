@@ -106,6 +106,16 @@ class PipelineError(ACISError):
     code = "pipeline_error"
 
 
+class NoViableTopicError(PipelineError):
+    """No candidate topic survived early screening (e.g. insufficient sources).
+
+    Raised before any expensive work (virality scoring, content creation) so the
+    system spends resources only on topics with a defensible factual basis.
+    """
+
+    code = "no_viable_topic"
+
+
 class QualityGateError(PipelineError):
     """Content did not meet the minimum quality threshold to be published."""
 

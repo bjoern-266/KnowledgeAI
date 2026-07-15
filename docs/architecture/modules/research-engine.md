@@ -1,34 +1,60 @@
-# Research Engine (step 4)
+# Research Engine — Design (impl. order #2)
 
-## Purpose
-Produce a **fact-checked dossier** for a topic: verified facts each backed by
-multiple reliable sources.
+> Interface: `acis.engines.interfaces.ResearchEngine`
+> Business rules: [CONTENT_INTELLIGENCE.md §2, §4](../../../CONTENT_INTELLIGENCE.md)
+> Ordering rationale: [ADR-0005](../adr/0005-pipeline-ordering-screen-score-research.md)
 
-## Interface
-`acis.engines.interfaces.ResearchEngine`
-- `research(topic) -> ResearchDossier`
+## 1. Purpose & responsibilities
+Guarantee a **defensible factual basis** for every published piece — and do so
+cost-efficiently by splitting cheap screening from expensive research.
+- `screen(topic)` — cheap pre-virality check: are there enough credible sources?
+- `research(topic)` — deep, verified fact gathering for the winning topic only.
+- Score source reliability; cross-verify claims; prevent hallucination.
 
-## Approach
-1. **Query expansion** from the topic angle (LLM).
-2. **Retrieve** from reliable sources (encyclopedic, academic, official
-   statistics) via research adapters.
-3. **Extract candidate facts** and attach citations.
-4. **Cross-verify:** keep a fact only if corroborated by ≥ `min_sources_per_topic`
-   independent sources; score each source's `reliability`.
-5. **Summarise** into a coherent `ResearchDossier` (facts + `Source[]`).
+## 2. Input / output data (domain models)
+- `screen`: **in** `Topic` → **out** `SourceAvailability`
+  (`source_count`, `sufficient`, `candidate_sources`, `reason`).
+- `research`: **in** `Topic` → **out** `ResearchDossier`
+  (`summary`, `facts`, `sources: list[Source]` with `reliability`).
 
-Sources are first-class domain objects so the Quality Engine and captions can
-cite them.
+## 3. Interfaces to other modules
+- **Consumes:** research/search `TrendSourcePort`-style adapters + `LLMPort`
+  (extraction/summarisation), `Repository` (source cache).
+- **Produces for:** Virality Engine (via `screen` gate), Content Engine and
+  Quality Engine (via `research`).
+- Runs at **two points** in the pipeline (screen before scoring, research after
+  selection).
 
-## Integrations
-`openai` (extraction/summarisation) plus research/search adapters (future).
+## 4. Configuration parameters
+- `quality.min_sources_per_topic` — screening threshold.
+- (new) `research.source_tiers` — tier→reliability mapping (§2).
+- (new) `research.max_sources`, `research.require_tier1_or_2` — verification depth.
+- (new) `research.cache_ttl` — source reuse window.
 
-## Quality / risks
-- Hallucination control: facts must trace to a real retrieved source, not the
-  LLM alone.
-- Source reliability scoring drives the Quality Engine's source-check gate.
-- Recency vs. correctness for "current developments" topics.
+## 5. Error cases
+- Retrieval source down → `IntegrationUnavailableError`; screening returns
+  `sufficient=False` with a reason rather than crashing.
+- Fewer than min sources → `sufficient=False` (topic dropped upstream).
+- Contradictory sources → resolve by tier or mark the claim contested; never
+  silently pick one.
+- LLM invents a fact with no source → rejected by the anti-hallucination rule.
 
-## Open questions
-- Which retrieval backends first (Wikipedia/Wikidata, OpenAlex, official stats)?
-- Caching/deduplication of sources across runs.
+## 6. Quality criteria
+- Screening is genuinely cheap (no full fact extraction).
+- Every dossier fact traces to ≥ 2 independent retrieved sources, ≥ 1 in Tier 1–2.
+- Source independence enforced (shared wire stories collapse to one).
+- Deterministic, auditable `reliability` scoring.
+
+## 7. Test strategy
+- Unit: screening threshold behaviour; cross-verification (accept/reject);
+  tier/reliability scoring; conflict resolution — with fake sources + stub LLM.
+- Anti-hallucination: a fact without a backing source is dropped.
+- Cost: `research` is never called during screening (spy/ordering test — already
+  present in `tests/test_pipeline.py`).
+- Contract: satisfies `ResearchEngine`.
+
+## 8. Extension possibilities
+- Add retrieval backends (Wikipedia/Wikidata, OpenAlex, official stats APIs) as
+  adapters.
+- Embedding-based claim clustering & contradiction detection.
+- Per-domain reliability models; source reputation learned over time.

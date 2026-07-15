@@ -1,37 +1,49 @@
-# Learning Engine (step 9)
+# Learning Engine — Design (impl. order #10)
 
-## Purpose
-Close the loop: turn performance data into **guidance that improves future
-content** — which topics, angles, formats, and posting times work.
+> Interface: `acis.engines.interfaces.LearningEngine`
+> Business rules: [CONTENT_INTELLIGENCE.md §3, §8](../../../CONTENT_INTELLIGENCE.md)
 
-## Interface
-`acis.engines.interfaces.LearningEngine`
-- `learn(receipt, metrics) -> dict[str, float]`
+## 1. Purpose & responsibilities
+Close the loop: turn performance into **guidance that improves future content** —
+which topics, angles, formats, and posting times work. This is what makes the
+system autonomous *and improving*, not merely automated.
 
-## Approach
-1. **Attribute** outcomes to the content's features (category, angle, hook style,
-   slide count, posting time, design variants).
-2. **Update models:** maintain per-feature performance priors (e.g. category →
-   expected save rate). Start with simple exponential-moving-average priors;
-   graduate to a bandit/regression as data grows.
-3. **Emit weights** consumed by the Virality Engine (topic scoring) and the
-   Publishing Engine (timing), persisted for the next cycle.
-4. **Experimentation:** allocate a fraction of runs to exploration so the system
-   keeps discovering, avoiding local maxima.
+## 2. Input / output data (domain models)
+- **In:** `PublishReceipt`, metrics `dict[str, float]` (from Analytics).
+- **Out:** learned signals `dict[str, float]` (e.g. per-category save/share
+  priors, best posting windows), persisted for the next cycle.
 
-This is what makes the system *autonomous and improving* rather than merely
-automated.
+## 3. Interfaces to other modules
+- **Consumes:** `Repository` (historical metrics + current priors). No external
+  I/O — pure analysis.
+- **Produces for:** Virality Engine (`category_fit`, `save_worthiness`,
+  `historical_fit`), Content/TikTok engines (hook/pacing), Publishing (timing).
+- Communicates only via persisted signals (no direct engine calls).
 
-## Integrations
-None external — pure analysis over persisted metrics. Reads/writes the
-repository.
+## 4. Configuration parameters
+- (new) `learning.method` — `ema` | `bandit` | `regression`.
+- (new) `learning.ema_alpha`, `learning.min_samples` (shrinkage).
+- (new) `learning.exploration_ratio` — exploration budget (shared with virality).
 
-## Quality / risks
-- Feedback collapse (exploiting one winning pattern) → enforce exploration &
-  diversity constraints.
-- Small-sample noise → shrinkage/priors before acting on a signal.
-- Overfitting to a platform's transient algorithm changes.
+## 5. Error cases
+- Sparse data (cold start) → return priors unchanged; never overfit one post.
+- Corrupt/missing metrics → skip that data point.
+- Feedback collapse risk → exploration budget + diversity constraint mitigate.
 
-## Open questions
-- EMA priors vs. contextual bandit vs. regression — sequencing by data volume.
-- How aggressively learned weights override configured defaults.
+## 6. Quality criteria
+- Shrinkage/priors applied before acting on small samples.
+- Exploration preserved (system keeps discovering).
+- Updates are explainable and bounded; no runaway weights.
+- Deterministic given the same history + seed.
+
+## 7. Test strategy
+- Unit: EMA update math; shrinkage on small n; exploration sampling (seeded);
+  collapse-guard behaviour.
+- Loop: metrics in → priors shift in the expected direction → virality picks
+  differently next cycle (integration).
+- Contract: satisfies `LearningEngine`.
+
+## 8. Extension possibilities
+- Graduate EMA → contextual bandit → regression as data volume grows.
+- Per-platform and per-angle models.
+- Automatic weight tuning for the virality components.

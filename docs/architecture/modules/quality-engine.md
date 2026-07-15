@@ -1,35 +1,49 @@
-# Quality Engine
+# Quality Engine — Design (impl. order #7)
 
-## Purpose
-The **gatekeeper**. No content is published unless it passes fact, source,
-spelling, and design checks and clears the overall score threshold.
+> Interface: `acis.engines.interfaces.QualityEngine`
+> Business rules: [CONTENT_INTELLIGENCE.md §7](../../../CONTENT_INTELLIGENCE.md)
 
-## Interface
-`acis.engines.interfaces.QualityEngine`
-- `evaluate(content, dossier, assets) -> QualityReport`
+## 1. Purpose & responsibilities
+The **gatekeeper**. Score content against fact/source/spelling/design gates and
+report whether it clears the threshold. It only *reports*; the pipeline enforces
+the hard stop, so the rule lives in exactly one place.
 
-## Approach
-Run independent checks, each yielding a `[0..1]` sub-score in
-`QualityReport.scores` keyed by `QualityCheck`:
-- **fact_check** — every `highlight`/claim traces to a dossier fact.
-- **source_check** — ≥ `min_sources_per_topic` reliable sources present.
-- **spelling_check** — grammar/spelling/tone (premium, technical) pass.
-- **design_check** — assets exist, brand palette respected, accent used only for
-  headings/numbers/key facts/CTA, contrast/overflow OK.
-- **overall_score** — aggregate; must be ≥ `quality.min_score`.
+## 2. Input / output data (domain models)
+- **In:** `ContentPiece`, `ResearchDossier`, `assets: list[Asset]`.
+- **Out:** `QualityReport` (`scores: dict[QualityCheck, float]`, `passed`,
+  `threshold`, `issues`). `overall` is derived from `OVERALL_SCORE`.
 
-The engine only *reports*; the **pipeline** enforces the hard stop
-(`QualityGateError`) so the rule lives in one place and cannot be bypassed by an
-individual engine.
+## 3. Interfaces to other modules
+- **Consumes:** `LLMPort` (fact/spelling/style checks), quality + branding config.
+- **Produces for:** the orchestrator (which raises `QualityGateError` if not
+  `passed`).
 
-## Integrations
-`openai` (fact/spelling/style checks). Consumes `quality` and `branding` config.
+## 4. Configuration parameters
+- `quality.min_score` — publish threshold.
+- `quality.require_fact_check|source_check|spelling_check|design_check` — toggles.
+- `quality.min_sources_per_topic` — reused for source_check.
+- (new) `quality.weights` — sub-score aggregation weights.
 
-## Quality / risks
-- False negatives block good content; false positives publish bad content —
-  thresholds are config-tunable and logged with full sub-score breakdown.
-- Design checks may need image analysis, not just metadata.
+## 5. Error cases
+- LLM checker unavailable → treat as failing the affected gate (fail-closed), log.
+- Missing inputs (no assets/dossier) → corresponding gate scores 0.
+- Never raises to publish anyway: absence of evidence = fail, not pass.
 
-## Open questions
-- Weighting of sub-scores in the aggregate.
-- Human-in-the-loop escape hatch for borderline scores (probably off by default).
+## 6. Quality criteria
+- Fail-closed: uncertainty blocks publishing, never permits it.
+- Every gate contributes an explicit sub-score; `issues` explains failures.
+- Design gate enforces the accent-only-for-key-elements brand rule.
+- Deterministic given the same inputs.
+
+## 7. Test strategy
+- Unit: each gate independently (pass/fail); aggregation math; threshold
+  boundary; fail-closed on checker error.
+- Integration: below-threshold content blocks publish (already in
+  `tests/test_pipeline.py`).
+- Contract: satisfies `QualityEngine`.
+
+## 8. Extension possibilities
+- Image-analysis-based design checks (contrast, overflow) beyond metadata.
+- Plagiarism / originality check.
+- Per-platform quality thresholds.
+- Optional human-in-the-loop escape hatch for borderline scores (default off).

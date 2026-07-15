@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from acis.core.errors import QualityGateError
+from acis.core.errors import NoViableTopicError, QualityGateError
 from acis.domain.enums import PublishStatus
 from acis.reference import build_reference_pipeline
 
@@ -64,3 +64,58 @@ def test_run_without_publish_skips_platforms(context):
     result = pipeline.run_once(publish=False)
     assert result.receipts == []
     assert result.metrics == {}
+
+
+def test_screening_runs_before_virality_and_research(context):
+    """Screening must gate topics before virality scoring and deep research.
+
+    We spy on the engines to assert the ordering: every surviving topic is
+    screened, virality only ever sees screened topics, and research (deep) runs
+    exactly once - for the selected winner.
+    """
+    pipeline = build_reference_pipeline(context)
+    screened: list[str] = []
+    ranked_inputs: list[int] = []
+    researched: list[str] = []
+
+    real_screen = pipeline.research.screen
+    real_rank = pipeline.virality.rank
+    real_research = pipeline.research.research
+
+    def spy_screen(topic):
+        screened.append(topic.id)
+        return real_screen(topic)
+
+    def spy_rank(topics):
+        ranked_inputs.append(len(topics))
+        return real_rank(topics)
+
+    def spy_research(topic):
+        researched.append(topic.id)
+        return real_research(topic)
+
+    pipeline.research.screen = spy_screen  # type: ignore[method-assign]
+    pipeline.virality.rank = spy_rank  # type: ignore[method-assign]
+    pipeline.research.research = spy_research  # type: ignore[method-assign]
+
+    result = pipeline.run_once(publish=False)
+
+    assert screened, "screening was not run"
+    # Virality only scores the topics that passed screening.
+    assert ranked_inputs and ranked_inputs[0] <= len(screened)
+    # Deep research runs exactly once, for the selected topic.
+    assert researched == [result.topic.id]
+
+
+def test_no_viable_topic_when_screening_rejects_all(context, monkeypatch):
+    """If nothing passes screening, the run aborts before any expensive work."""
+    from acis.domain.models import SourceAvailability
+
+    pipeline = build_reference_pipeline(context)
+
+    def reject_all(topic):
+        return SourceAvailability(topic_id=topic.id, source_count=0, sufficient=False)
+
+    monkeypatch.setattr(pipeline.research, "screen", reject_all)
+    with pytest.raises(NoViableTopicError):
+        pipeline.run_once(publish=False)

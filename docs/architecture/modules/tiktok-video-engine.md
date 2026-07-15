@@ -1,32 +1,47 @@
-# TikTok Video Engine
+# TikTok Video Engine — Design (impl. order #6)
 
-## Purpose
+> Interface: `acis.engines.interfaces.TikTokVideoEngine`
+> Business rules: [CONTENT_INTELLIGENCE.md §6, §8](../../../CONTENT_INTELLIGENCE.md)
+
+## 1. Purpose & responsibilities
 Derive a vertical **TikTok video** from the same content/design used for the
-Instagram carousel, so one research effort yields both formats.
+carousel, so one research effort yields both formats with consistent branding.
+- Storyboard from slides (hook → beats → CTA).
+- Assemble frames from Canva assets; add motion, captions, optional voiceover.
+- Encode to a publish-ready MP4.
 
-## Interface
-`acis.engines.interfaces.TikTokVideoEngine`
-- `render(content, design) -> VideoResult`
+## 2. Input / output data (domain models)
+- **In:** `ContentPiece`, `DesignResult`.
+- **Out:** `VideoResult` (`asset: Asset` (video, 1080×1920), `duration_seconds`).
 
-## Approach
-1. **Storyboard** from the carousel slides: hook → fact beats → CTA, timed for a
-   15–30s vertical (1080×1920) video.
-2. **Assemble** frames from the Canva design assets, add motion (pan/zoom),
-   captions, and optional synthesized voiceover/subtitles.
-3. **Encode** to MP4 and return a `VideoResult` (asset + duration).
+## 3. Interfaces to other modules
+- **Consumes:** Canva design assets, optional TTS/voiceover adapter, a render
+  step (local ffmpeg or a cloud render adapter).
+- **Produces for:** Quality Engine, Publishing Engine (TikTok).
 
-Reuses the Canva-rendered visuals to guarantee brand consistency across
-platforms rather than designing twice.
+## 4. Configuration parameters
+- (new) `tiktok_video.target_seconds`, `tiktok_video.fps`.
+- (new) `tiktok_video.voiceover` (on/off, voice), `tiktok_video.subtitles`.
+- `branding.*` — colours, safe-zones for TikTok UI overlays.
 
-## Integrations
-`canva` (frame assets), optional TTS/voiceover adapter, a rendering step
-(local ffmpeg or a cloud render adapter).
+## 5. Error cases
+- Render tool unavailable → `IntegrationUnavailableError`; run can still prepare
+  the carousel (video marked not-produced).
+- Asset missing/corrupt → fail this piece with context.
+- Audio licensing constraint → skip audio, keep subtitles.
 
-## Quality / risks
-- Pacing: first second must carry the hook.
-- Caption legibility on mobile; safe-zones for TikTok UI overlays.
-- Licensing of any audio.
+## 6. Quality criteria
+- Hook lands in the first second.
+- Captions legible on mobile; content inside TikTok safe-zones.
+- Duration within target; brand-consistent visuals (reused from Canva).
 
-## Open questions
-- Local ffmpeg vs. a hosted rendering service.
-- Voiceover: synthesized vs. text-only.
+## 7. Test strategy
+- Unit (mock render/TTS): storyboard from slides, duration calc, safe-zone
+  layout, asset assembly order.
+- Failure: missing asset / render error handled.
+- Contract: satisfies `TikTokVideoEngine`.
+
+## 8. Extension possibilities
+- Local ffmpeg vs. hosted rendering behind one port.
+- Synthesized voiceover, auto-captions, trending-sound integration.
+- Pacing tuned by Learning-Engine watch-through data.

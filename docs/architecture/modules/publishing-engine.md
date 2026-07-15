@@ -1,30 +1,48 @@
-# Publishing Engine (step 7)
+# Publishing Engine — Design (impl. order #8)
 
-## Purpose
+> Interface: `acis.engines.interfaces.PublishingEngine`
+> Business rules: [CONTENT_INTELLIGENCE.md §6, §8](../../../CONTENT_INTELLIGENCE.md)
+
+## 1. Purpose & responsibilities
 Publish approved content to **Instagram** and **TikTok** — or, when credentials
-are absent, **prepare** it for one-click go-live.
+are absent/unavailable, **prepare** it for one-click go-live.
+- Per-platform publish via ports.
+- Schedule to optimal windows (Learning-Engine informed).
+- Idempotency, retries, receipt persistence.
 
-## Interface
-`acis.engines.interfaces.PublishingEngine`
-- `publish(content, assets) -> PublishReceipt`
+## 2. Input / output data (domain models)
+- **In:** `ContentPiece`, `assets: list[Asset]` (and `VideoResult` for TikTok).
+- **Out:** `PublishReceipt` (`platform`, `status`, `external_id`, `url`, `detail`).
+  `status` is `PUBLISHED`, `PREPARED` (creds absent), `SCHEDULED`, or `FAILED`.
 
-## Approach
-1. **Per-platform publish** through `InstagramPort` / `TikTokPort`.
-2. **Scheduling** to optimal posting windows (informed by the Analytics/Learning
-   engines).
-3. **Graceful degradation:** if a live adapter can't publish (missing creds /
-   API down), emit a `PublishReceipt` with status `PREPARED` and the reason,
-   rather than failing the whole run — satisfying "prepare or publish".
-4. **Idempotency & retries** with backoff; persist receipts for auditing.
+## 3. Interfaces to other modules
+- **Consumes:** `InstagramPort`, `TikTokPort`, `Repository` (receipts, dedup).
+- **Produces for:** Analytics Engine (`external_id`).
+- Only runs after the quality gate passed (guaranteed by the orchestrator).
 
-## Integrations
-`instagram`, `tiktok`. Persists `PublishReceipt`s in the repository.
+## 4. Configuration parameters
+- `content.platforms` — which platforms to target.
+- `integrations.instagram.*`, `integrations.tiktok.*` — mode/credentials.
+- (new) `publishing.schedule` — immediate vs. optimal-window; retry policy.
 
-## Quality / risks
-- Never publish content that didn't pass the quality gate (guaranteed upstream).
-- Rate limits / token expiry → typed `IntegrationError`s with retry policy.
-- Exactly-once semantics to avoid duplicate posts.
+## 5. Error cases
+- Missing credentials in live mode → `PREPARED` receipt + reason (graceful
+  degradation), not a run failure.
+- Rate limit / token expiry → `IntegrationRateLimitError` / `IntegrationAuthError`;
+  retry with backoff, then `FAILED` with detail.
+- Duplicate publish attempt → idempotency guard prevents double posting.
 
-## Open questions
-- Immediate vs. scheduled posting as the default.
-- Cross-posting order and interdependencies.
+## 6. Quality criteria
+- Never publishes content that didn't pass the gate.
+- Exactly-once semantics per (content, platform).
+- Every attempt yields a persisted receipt (audit trail).
+
+## 7. Test strategy
+- Unit (mock ports): success → `PUBLISHED`; missing creds → `PREPARED`; API
+  error → retry then `FAILED`; idempotency.
+- Contract: satisfies `PublishingEngine`.
+
+## 8. Extension possibilities
+- More platforms (YouTube Shorts, etc.) via new ports.
+- Optimal-time scheduling from analytics.
+- Cross-post coordination / staggering.

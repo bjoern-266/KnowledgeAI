@@ -95,8 +95,25 @@ class Source(BaseModel):
     retrieved_at: datetime = Field(default_factory=_now)
 
 
+class SourceAvailability(BaseModel):
+    """Result of the cheap pre-research *screening* check.
+
+    Produced by the Research Engine's ``screen`` before virality scoring. It only
+    establishes whether a topic has enough credible sources to be worth pursuing;
+    it does NOT extract or verify facts (that is the full ``research`` step).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    topic_id: str
+    source_count: int = 0
+    sufficient: bool = False
+    candidate_sources: list[Source] = Field(default_factory=list)
+    reason: str = ""
+
+
 class ResearchDossier(DomainModel):
-    """Verified facts and sources gathered for a topic."""
+    """Verified facts and sources gathered for a topic (full research output)."""
 
     topic_id: str
     summary: str = ""

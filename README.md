@@ -94,11 +94,17 @@ key facts, highlights and CTAs. See [docs/branding.md](docs/branding.md).
 
 | Doc | Purpose |
 | --- | --- |
+| [Content Intelligence](CONTENT_INTELLIGENCE.md) | **The business brain** — what content is produced, why, and how it improves |
 | [Architecture overview](docs/architecture/overview.md) | System design & data flow |
-| [ADRs](docs/architecture/adr) | Why key decisions were made |
-| [Module concepts](docs/architecture/modules) | One concept per engine |
+| [ADRs](docs/architecture/adr) | Why key decisions were made (incl. pipeline ordering) |
+| [Module designs](docs/architecture/modules) | Detailed 8-section design doc per engine |
 | [Development guidelines](docs/development-guidelines.md) | How to contribute |
 | [Branding](docs/branding.md) | Visual identity spec |
+
+> **Status:** the business architecture is fully specified. Engines are
+> implemented in review order (Trend → Research → Virality → …), one at a time,
+> each against its approved design doc. See
+> [module designs](docs/architecture/modules/README.md).
 
 ## License
 

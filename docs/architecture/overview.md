@@ -8,31 +8,38 @@ The guiding principle is **strict modularity behind small interfaces**. Any
 engine can be rewritten, and any external service swapped between mock and live,
 without touching the rest of the system.
 
-## The workflow (10 stages)
+## The workflow
+
+Stage ordering follows [ADR-0005](adr/0005-pipeline-ordering-screen-score-research.md):
+find topics → **screen sources (cheap)** → score virality → deep-research the
+winner → create. Weak-evidence topics are discarded before any expensive work.
 
 ```
+ ┌─────────────┐   ┌───────────────┐   ┌────────────┐   ┌────────────────┐
+ │ 1 Trend     │──▶│ 2 Research    │──▶│ 3 Virality │──▶│ 2 Research     │
+ │ Intelligence│   │   .screen()   │   │  scoring   │   │   .research()  │
+ │ → topics    │   │ source gate   │   │ (survivors)│   │ winner only    │
+ └─────────────┘   └───────────────┘   └────────────┘   └───────┬────────┘
+                     (drop weak                                  │
+                      topics early)     ┌───────────────────────┘
+                                        ▼
  ┌─────────────┐   ┌────────────┐   ┌──────────────┐   ┌─────────────┐
- │ 1-2 Trend   │──▶│ 3 Virality │──▶│ 4 Research   │──▶│ 5 Content   │
- │ Intelligence│   │  scoring   │   │ (multi-src)  │   │  authoring  │
+ │ 4 Content   │──▶│ 5 Canva    │──▶│ 6 TikTok     │──▶│ 7 Quality   │
+ │  authoring  │   │ automation │   │ Video derive │   │ gate (stop) │
  └─────────────┘   └────────────┘   └──────────────┘   └──────┬──────┘
                                                               │
-        ┌─────────────────────────────────────────────────────┘
+        ┌──────────────────────────────────────────────────────┘
         ▼
- ┌─────────────┐   ┌──────────────┐   ┌─────────────┐   ┌──────────────┐
- │ 6 Canva     │──▶│ TikTok Video │──▶│ Quality gate│──▶│ 7 Publishing │
- │ automation  │   │  derivation  │   │ (hard stop) │   │  IG + TikTok │
- └─────────────┘   └──────────────┘   └─────────────┘   └──────┬───────┘
-                                                               │
-                                        ┌──────────────────────┘
-                                        ▼
-                              ┌────────────────┐   ┌──────────────┐
-                              │ 8 Analytics    │──▶│ 9 Learning   │──▶ (feeds stage 1-3)
-                              └────────────────┘   └──────────────┘
+ ┌──────────────┐   ┌───────────────┐   ┌──────────────┐
+ │ 8 Publishing │──▶│ 9 Analytics   │──▶│ 10 Learning  │──▶ (feeds stages 1-3)
+ │  IG + TikTok │   │  measure KPIs │   │  optimise    │
+ └──────────────┘   └───────────────┘   └──────────────┘
 ```
 
 The order and data-hand-off are owned by the
 [pipeline orchestrator](../../src/acis/core/pipeline.py). Each stage is an
-engine that depends only on the previous stage's **domain models**.
+engine that depends only on domain models. The *what/why* of content decisions
+lives in [CONTENT_INTELLIGENCE.md](../../CONTENT_INTELLIGENCE.md).
 
 ## Layered structure
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from acis.core.config import Settings
-from acis.core.errors import QualityGateError
+from acis.core.errors import NoViableTopicError, QualityGateError
 from acis.core.logging import BoundLogger, get_logger
 from acis.domain.models import (
     ContentPiece,
@@ -74,31 +74,46 @@ class ContentPipeline:
         self.log: BoundLogger = BoundLogger(get_logger("acis.pipeline"))
 
     def run_once(self, *, region: str = "global", publish: bool = True) -> PipelineResult:
-        """Execute a single full cycle and return everything produced."""
-        # 1-2. Detect trends & collect topics.
+        """Execute a single full cycle and return everything produced.
+
+        Stage ordering is deliberate (see ADR-0005): cheap source **screening**
+        happens *before* virality scoring so topics with a weak factual basis are
+        discarded early, and the expensive deep **research** runs only for the
+        single winning topic. This spends resources where they pay off.
+        """
+        # 1-2. Detect trends & collect candidate topics.
         trends = self.trend.discover(region=region)
         topics = self.trend.to_topics(trends)
         if not topics:
-            raise QualityGateError("No topics could be derived from trends")
+            raise NoViableTopicError("No topics could be derived from trends")
 
-        # 3. Score virality and pick the strongest topic.
-        ranked = self.virality.rank(topics)
+        # 3. Cheap screening: keep only topics with a sufficient source base.
+        viable = [t for t in topics if self.research.screen(t).sufficient]
+        self.log.info("pipeline.screened", candidates=len(topics), viable=len(viable))
+        if not viable:
+            raise NoViableTopicError(
+                "No candidate topic passed source screening",
+                context={"candidates": len(topics)},
+            )
+
+        # 4. Score virality on the survivors and pick the strongest.
+        ranked = self.virality.rank(viable)
         topic = ranked[0]
         self.log.info("pipeline.topic_selected", topic=topic.title, category=topic.category.value)
 
-        # 4. Research verified facts.
+        # 5. Deep research (verified facts) for the winning topic only.
         dossier = self.research.research(topic)
 
-        # 5. Create platform content (carousel is the primary artifact).
+        # 6. Create platform content (carousel is the primary artifact).
         content = self.content.create(topic, dossier)
 
-        # 6. Design automatically in Canva.
+        # 7. Design automatically in Canva.
         design = self.canva.design(content)
 
-        # (derive) TikTok video from the same content/design.
+        # 8. Derive the TikTok video from the same content/design.
         video = self.tiktok.render(content, design)
 
-        # Quality gate - fact/source/spelling/design/score checks.
+        # 9. Quality gate - fact/source/spelling/design/score checks.
         report = self.quality.evaluate(content, dossier, design.assets)
         if not report.passed:
             self.log.warning(
@@ -122,11 +137,11 @@ class ContentPipeline:
             quality=report,
         )
 
-        # 7. Publish (or prepare, when credentials are absent).
+        # 10. Publish (or prepare, when credentials are absent).
         if publish:
             receipt = self.publishing.publish(content, design.assets)
             result.receipts.append(receipt)
-            # 8-9. Collect metrics and learn from them.
+            # 11-12. Collect metrics and learn from them.
             result.metrics = self.analytics.collect(receipt)
             self.learning.learn(receipt, result.metrics)
 

@@ -21,6 +21,7 @@ from acis.domain.models import (
     PublishReceipt,
     QualityReport,
     ResearchDossier,
+    SourceAvailability,
     Topic,
     Trend,
     VideoResult,
@@ -38,19 +39,28 @@ class TrendIntelligenceEngine(Protocol):
 
 
 @runtime_checkable
+class ResearchEngine(Protocol):
+    """Step 3 (screen) + step 5 (deep research).
+
+    ``screen`` is a cheap, pre-virality check that only establishes whether a
+    topic has enough credible sources to be worth pursuing. ``research`` is the
+    expensive step that extracts and verifies facts, run only for the single
+    winning topic. Splitting them lets the pipeline discard weak topics before
+    spending resources on scoring or content creation.
+    """
+
+    def screen(self, topic: Topic) -> SourceAvailability: ...
+
+    def research(self, topic: Topic) -> ResearchDossier: ...
+
+
+@runtime_checkable
 class ViralityEngine(Protocol):
-    """Step 3: score topics by share/save potential."""
+    """Step 4: score topics (that passed screening) by share/save potential."""
 
     def score(self, topic: Topic) -> ViralityScore: ...
 
     def rank(self, topics: list[Topic]) -> list[Topic]: ...
-
-
-@runtime_checkable
-class ResearchEngine(Protocol):
-    """Step 4: gather verified facts from multiple reliable sources."""
-
-    def research(self, topic: Topic) -> ResearchDossier: ...
 
 
 @runtime_checkable
